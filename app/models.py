@@ -45,6 +45,7 @@ class Movement(db.Model):
 class Order(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     customer_name = db.Column(db.String(120), nullable=False)
+    customer_address = db.Column(db.String(200))
     status = db.Column(db.String(20), default='offen')
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
