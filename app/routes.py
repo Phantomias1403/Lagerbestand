@@ -4,7 +4,7 @@ from flask import render_template, redirect, url_for, request, flash, Response, 
 from flask_login import login_user, logout_user, login_required, current_user
 
 from . import db
-from .models import User, Article, Movement
+from .models import User, Article, Movement, Order, OrderItem
 
 
 def admin_required(func):
@@ -197,3 +197,78 @@ def export_movements():
         writer.writerow([m.article.sku,m.article.name, m.quantity, m.note, m.timestamp])
     output = si.getvalue()
     return Response(output, mimetype='text/csv', headers={'Content-Disposition': 'attachment;filename=movements.csv'})
+
+
+# Bestellungen
+@bp.route('/orders')
+@login_optional
+def order_list():
+    from datetime import datetime
+    query = Order.query
+    status = request.args.get('status')
+    if status:
+        query = query.filter_by(status=status)
+    customer = request.args.get('customer')
+    if customer:
+        query = query.filter(Order.customer_name.contains(customer))
+    start = request.args.get('start')
+    if start:
+        try:
+            start_dt = datetime.strptime(start, '%Y-%m-%d')
+            query = query.filter(Order.created_at >= start_dt)
+        except ValueError:
+            pass
+    end = request.args.get('end')
+    if end:
+        try:
+            end_dt = datetime.strptime(end, '%Y-%m-%d')
+            query = query.filter(Order.created_at <= end_dt)
+        except ValueError:
+            pass
+    orders = query.order_by(Order.created_at.desc()).all()
+    statuses = ['offen', 'bezahlt', 'versendet']
+    return render_template('orders_list.html', orders=orders, statuses=statuses, selected_status=status)
+
+
+@bp.route('/orders/<int:order_id>')
+@login_optional
+def order_detail(order_id):
+    order = Order.query.get_or_404(order_id)
+    return render_template('order_detail.html', order=order)
+
+
+@bp.route('/orders/new', methods=['GET', 'POST'])
+@login_optional
+@admin_required
+def new_order():
+    statuses = ['offen', 'bezahlt', 'versendet']
+    articles = Article.query.all()
+    if request.method == 'POST':
+        order = Order(customer_name=request.form['customer_name'], status=request.form['status'])
+        db.session.add(order)
+        db.session.flush()
+        for article in articles:
+            qty = int(request.form.get(f'qty_{article.id}', 0))
+            price = float(request.form.get(f'price_{article.id}', 0) or 0)
+            if qty > 0:
+                item = OrderItem(order_id=order.id, article_id=article.id, quantity=qty, unit_price=price)
+                db.session.add(item)
+        db.session.commit()
+        flash('Bestellung angelegt')
+        return redirect(url_for('main.order_detail', order_id=order.id))
+    return render_template('order_form.html', articles=articles, statuses=statuses)
+
+
+@bp.route('/orders/<int:order_id>/edit', methods=['GET', 'POST'])
+@login_optional
+@admin_required
+def edit_order(order_id):
+    statuses = ['offen', 'bezahlt', 'versendet']
+    order = Order.query.get_or_404(order_id)
+    if request.method == 'POST':
+        order.customer_name = request.form['customer_name']
+        order.status = request.form['status']
+        db.session.commit()
+        flash('Bestellung aktualisiert')
+        return redirect(url_for('main.order_detail', order_id=order.id))
+    return render_template('order_form.html', order=order, statuses=statuses, articles=None)

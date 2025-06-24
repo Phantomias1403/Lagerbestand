@@ -1,0 +1,34 @@
+{% extends 'layout.html' %}
+{% block content %}
+<h1>Bestellungen</h1>
+<form class="row mb-3">
+  <div class="col"><input class="form-control" type="text" name="customer" placeholder="Kunde" value="{{ request.args.get('customer','') }}"></div>
+  <div class="col"><input class="form-control" type="date" name="start" value="{{ request.args.get('start','') }}"></div>
+  <div class="col"><input class="form-control" type="date" name="end" value="{{ request.args.get('end','') }}"></div>
+  <div class="col">
+    <select name="status" class="form-select">
+      <option value="">Alle</option>
+      {% for st in statuses %}
+      <option value="{{ st }}" {% if selected_status==st %}selected{% endif %}>{{ st }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="col"><button type="submit" class="btn btn-primary">Filter</button></div>
+</form>
+<a href="{{ url_for('main.new_order') }}" class="btn btn-success mb-3">Neue Bestellung</a>
+<table class="table table-striped">
+  <thead><tr><th>ID</th><th>Kunde</th><th>Status</th><th>Datum</th><th>Summe</th><th></th></tr></thead>
+  <tbody>
+  {% for o in orders %}
+  <tr>
+    <td>{{ o.id }}</td>
+    <td>{{ o.customer_name }}</td>
+    <td>{{ o.status }}</td>
+    <td>{{ o.created_at.date() }}</td>
+    <td>{{ '%.2f'|format(o.total_price) }}</td>
+    <td><a class="btn btn-sm btn-primary" href="{{ url_for('main.order_detail', order_id=o.id) }}">Details</a></td>
+  </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

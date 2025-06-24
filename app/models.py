@@ -41,3 +41,25 @@ class Movement(db.Model):
     quantity = db.Column(db.Integer, nullable=False)
     note = db.Column(db.String(200))
     timestamp = db.Column(db.DateTime, default=datetime.utcnow)
+class Order(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    customer_name = db.Column(db.String(120), nullable=False)
+    status = db.Column(db.String(20), default='offen')
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    items = db.relationship('OrderItem', backref='order', lazy=True, cascade='all, delete-orphan')
+
+    @property
+    def total_price(self):
+        return sum(item.quantity * item.unit_price for item in self.items)
+
+
+class OrderItem(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    order_id = db.Column(db.Integer, db.ForeignKey('order.id'), nullable=False)
+    article_id = db.Column(db.Integer, db.ForeignKey('article.id'), nullable=False)
+    quantity = db.Column(db.Integer, nullable=False)
+    unit_price = db.Column(db.Float, nullable=False)
+
+    article = db.relationship('Article')
+
