@@ -2,6 +2,9 @@
 {% block content %}
 <h1>Bestellung #{{ order.id }}</h1>
 <p>Kunde: {{ order.customer_name }}</p>
+{% if order.customer_address %}
+<p>Adresse: {{ order.customer_address|replace('\n', '<br>')|safe }}</p>
+{% endif %}
 <p>Status: {{ order.status }}</p>
 <p>Datum: {{ order.created_at }}</p>
 <table class="table table-striped">

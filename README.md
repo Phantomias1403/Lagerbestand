@@ -24,7 +24,11 @@ reduziert, sofern die Bestellung den Status "offen" oder "bezahlt" besitzt. Die
 Abgänge werden in den Lagerbewegungen vermerkt.
 
 Über die Detailansicht einer Bestellung kann zudem ein PDF-Versandetikett
-erstellt werden (ab Status "bezahlt").
+erstellt werden (ab Status "bezahlt"). Das Etikett nutzt automatisch
+"Fan-Kultur Xperience GmbH, Hauptstraße 20" als Absenderadresse. Beim
+Anlegen einer Bestellung kann eine Empfängeradresse hinterlegt werden, die in
+das Etikett übernommen wird. Die Etikettengröße beträgt 100x50&nbsp;mm und eignet
+sich damit auch für kleine Labeldrucker.
 
 ## CSV-Import
 CSV-Dateien müssen die Spalten `name, sku, stock, category, location_primary, location_secondary` besitzen.

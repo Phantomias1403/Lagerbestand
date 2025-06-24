@@ -246,13 +246,16 @@ def order_label(order_id):
         return redirect(url_for('main.order_detail', order_id=order.id))
     from fpdf import FPDF
 
-    pdf = FPDF()
+    pdf = FPDF(format=(100, 50))
     pdf.add_page()
     pdf.set_font('Arial', size=12)
-    sender = 'Fan-Kultur Xperience\nMusterstr. 1\n12345 Musterstadt'
+    sender = 'Fan-Kultur Xperience GmbH\nHauptstraße 20'
     pdf.multi_cell(0, 10, f'Absender:\n{sender}')
     pdf.ln(5)
-    pdf.multi_cell(0, 10, f'Empfänger:\n{order.customer_name}')
+    recipient = order.customer_name
+    if order.customer_address:
+        recipient += f"\n{order.customer_address}"
+    pdf.multi_cell(0, 10, f'Empfänger:\n{recipient}')
     pdf.ln(5)
     pdf.cell(0, 10, f'Bestellnummer: {order.id}', ln=True)
     pdf.ln(5)
@@ -271,7 +274,9 @@ def new_order():
     statuses = ['offen', 'bezahlt', 'versendet']
     articles = Article.query.all()
     if request.method == 'POST':
-        order = Order(customer_name=request.form['customer_name'], status=request.form['status'])
+        order = Order(customer_name=request.form['customer_name'],
+                     customer_address=request.form.get('customer_address'),
+                     status=request.form['status'])
         db.session.add(order)
         db.session.flush()
         movements = []
@@ -304,6 +309,7 @@ def edit_order(order_id):
     order = Order.query.get_or_404(order_id)
     if request.method == 'POST':
         order.customer_name = request.form['customer_name']
+        order.customer_address = request.form.get('customer_address')
         order.status = request.form['status']
         db.session.commit()
         flash('Bestellung aktualisiert')
