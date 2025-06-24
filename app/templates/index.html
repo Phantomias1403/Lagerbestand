@@ -20,6 +20,11 @@
       <td>{{ a.name }}</td>
       <td>{{ a.sku }}</td>
       <td>{{ a.category }}</td>
+      <td>
+        {% if a.image %}
+        <img src="{{ a.image }}" alt="Bild" style="max-height: 60px;">
+        {% endif %}
+      </td>
       <td>{{ a.stock }}</td>
       <td>
         <a class="btn btn-sm btn-primary" href="{{ url_for('main.edit_article', article_id=a.id) }}">Bearbeiten</a>

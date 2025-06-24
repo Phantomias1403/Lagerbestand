@@ -32,7 +32,7 @@ class Article(db.Model):
     location_secondary = db.Column(db.String(80))
     image = db.Column(db.String(200))
 
-    movements = db.relationship('Movement', backref='article', lazy=True)
+    movements = db.relationship('Movement', backref='article', lazy=True, cascade='all, delete-orphan')
 
 
 class Movement(db.Model):
