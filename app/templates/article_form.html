@@ -1,0 +1,20 @@
+{% extends 'layout.html' %}
+{% block content %}
+<h1>{% if article %}Artikel bearbeiten{% else %}Neuer Artikel{% endif %}</h1>
+<form method="post">
+  <div class="mb-3"><label class="form-label">Name</label><input class="form-control" name="name" value="{{ article.name if article else '' }}" required></div>
+  <div class="mb-3"><label class="form-label">SKU</label><input class="form-control" name="sku" value="{{ article.sku if article else '' }}" required></div>
+  <div class="mb-3"><label class="form-label">Kategorie</label>
+    <select name="category" class="form-select">
+      {% for cat in categories %}
+      <option value="{{ cat }}" {% if article and article.category==cat %}selected{% endif %}>{{ cat }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="mb-3"><label class="form-label">Bestand</label><input type="number" name="stock" class="form-control" value="{{ article.stock if article else 0 }}" required></div>
+  <div class="mb-3"><label class="form-label">Lagerort direkt</label><input class="form-control" name="location_primary" value="{{ article.location_primary if article else '' }}"></div>
+  <div class="mb-3"><label class="form-label">Lagerort Auffüllager</label><input class="form-control" name="location_secondary" value="{{ article.location_secondary if article else '' }}"></div>
+  <div class="mb-3"><label class="form-label">Bild URL (optional)</label><input class="form-control" name="image" value="{{ article.image if article else '' }}"></div>
+  <button type="submit" class="btn btn-primary">Speichern</button>
+</form>
+{% endblock %}
