@@ -40,6 +40,7 @@ class Movement(db.Model):
     article_id = db.Column(db.Integer, db.ForeignKey('article.id'), nullable=False)
     quantity = db.Column(db.Integer, nullable=False)
     note = db.Column(db.String(200))
+    order_id = db.Column(db.Integer, db.ForeignKey('order.id'))
     timestamp = db.Column(db.DateTime, default=datetime.utcnow)
 class Order(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -48,6 +49,7 @@ class Order(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     items = db.relationship('OrderItem', backref='order', lazy=True, cascade='all, delete-orphan')
+    movements = db.relationship('Movement', backref='order', lazy=True)
 
     @property
     def total_price(self):

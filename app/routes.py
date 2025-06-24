@@ -237,6 +237,33 @@ def order_detail(order_id):
     return render_template('order_detail.html', order=order)
 
 
+@bp.route('/orders/<int:order_id>/label')
+@login_optional
+def order_label(order_id):
+    order = Order.query.get_or_404(order_id)
+    if order.status not in ['bezahlt', 'versendet']:
+        flash('Versandetikett erst ab Status bezahlt verfügbar')
+        return redirect(url_for('main.order_detail', order_id=order.id))
+    from fpdf import FPDF
+
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.set_font('Arial', size=12)
+    sender = 'Fan-Kultur Xperience\nMusterstr. 1\n12345 Musterstadt'
+    pdf.multi_cell(0, 10, f'Absender:\n{sender}')
+    pdf.ln(5)
+    pdf.multi_cell(0, 10, f'Empfänger:\n{order.customer_name}')
+    pdf.ln(5)
+    pdf.cell(0, 10, f'Bestellnummer: {order.id}', ln=True)
+    pdf.ln(5)
+    pdf.cell(0, 10, 'Artikel:', ln=True)
+    for item in order.items:
+        pdf.cell(0, 10, f'{item.quantity} x {item.article.name}', ln=True)
+
+    return Response(pdf.output(dest='S').encode('latin-1'), mimetype='application/pdf',
+                    headers={'Content-Disposition': f'attachment;filename=order_{order.id}_label.pdf'})
+
+
 @bp.route('/orders/new', methods=['GET', 'POST'])
 @login_optional
 @admin_required
@@ -247,12 +274,22 @@ def new_order():
         order = Order(customer_name=request.form['customer_name'], status=request.form['status'])
         db.session.add(order)
         db.session.flush()
+        movements = []
         for article in articles:
             qty = int(request.form.get(f'qty_{article.id}', 0))
             price = float(request.form.get(f'price_{article.id}', 0) or 0)
             if qty > 0:
+                if order.status in ['offen', 'bezahlt'] and article.stock - qty < 0:
+                    db.session.rollback()
+                    flash(f'Nicht genug Bestand für {article.name}')
+                    return redirect(url_for('main.new_order'))
                 item = OrderItem(order_id=order.id, article_id=article.id, quantity=qty, unit_price=price)
                 db.session.add(item)
+                if order.status in ['offen', 'bezahlt']:
+                    article.stock -= qty
+                    movements.append(Movement(article_id=article.id, quantity=-qty, note=f'Bestellung #{order.id}', order_id=order.id))
+        for m in movements:
+            db.session.add(m)
         db.session.commit()
         flash('Bestellung angelegt')
         return redirect(url_for('main.order_detail', order_id=order.id))

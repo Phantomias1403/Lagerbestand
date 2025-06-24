@@ -22,4 +22,7 @@
   </tbody>
 </table>
 <a href="{{ url_for('main.edit_order', order_id=order.id) }}" class="btn btn-primary">Bearbeiten</a>
+{% if order.status in ['bezahlt', 'versendet'] %}
+<a href="{{ url_for('main.order_label', order_id=order.id) }}" class="btn btn-secondary">Versandetikett erzeugen</a>
+{% endif %}
 {% endblock %}
