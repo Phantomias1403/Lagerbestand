@@ -24,7 +24,7 @@ reduziert, sofern die Bestellung den Status "offen" oder "bezahlt" besitzt. Die
 Abgänge werden in den Lagerbewegungen vermerkt.
 
 Über die Detailansicht einer Bestellung kann zudem ein PDF-Versandetikett
-erstellt werden (ab Status "bezahlt"). Das Etikett hat das Format 100 x 50 mm
+erstellt werden (ab Status "bezahlt"). Das Etikett hat das Format 50 x 100 mm
 und enthält den standardmäßigen Absender "Fan-Kultur Xperience GmbH,\nHauptstraße 20".
 
 ## CSV-Import

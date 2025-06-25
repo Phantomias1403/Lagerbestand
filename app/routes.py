@@ -1,7 +1,16 @@
 import csv
 from io import StringIO
-from flask import render_template, redirect, url_for, request, flash, Response, current_app
-from flask_login import login_user, logout_user, login_required, current_user
+from flask import (
+    Blueprint,
+    Response,
+    current_app,
+    flash,
+    redirect,
+    render_template,
+    request,
+    url_for,
+)
+from flask_login import current_user, login_required, login_user, logout_user
 
 from . import db
 from .models import User, Article, Movement, Order, OrderItem
@@ -29,7 +38,6 @@ def login_optional(func):
     return wrapper
 
 
-from flask import Blueprint
 bp = Blueprint('main', __name__)
 
 
@@ -238,6 +246,7 @@ def order_detail(order_id):
 
 
 @bp.route('/orders/<int:order_id>/label')
+@bp.route('/order/<int:order_id>/label')
 @login_optional
 def order_label(order_id):
     order = Order.query.get_or_404(order_id)
@@ -246,8 +255,10 @@ def order_label(order_id):
         return redirect(url_for('main.order_detail', order_id=order.id))
     from fpdf import FPDF
 
-    pdf = FPDF(unit='mm', format=(100, 50))
+    pdf = FPDF(unit='mm', format=(50, 100))
+    pdf.set_margins(5, 5, 5)
     pdf.add_page()
+    pdf.set_auto_page_break(False)
     pdf.set_font('Arial', size=12)
     sender = 'Fan-Kultur Xperience GmbH\nHauptstraße 20'
     pdf.multi_cell(0, 10, f'Absender:\n{sender}')
