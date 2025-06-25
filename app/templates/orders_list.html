@@ -1,15 +1,17 @@
 {% extends 'layout.html' %}
 {% block content %}
 <h1>Bestellungen</h1>
-<form class="row mb-3">
-  <div class="col"><input class="form-control" type="text" name="customer" placeholder="Kunde" value="{{ request.args.get('customer','') }}"></div>
-  <div class="col"><input class="form-control" type="date" name="start" value="{{ request.args.get('start','') }}"></div>
-  <div class="col"><input class="form-control" type="date" name="end" value="{{ request.args.get('end','') }}"></div>
-  <div class="col">
-  <div class="col-12 col-md-3 mb-2 mb-md-0"><input class="form-control" type="text" name="customer" placeholder="Kunde" value="{{ request.args.get('customer','') }}"></div>
-  <div class="col-12 col-md-2 mb-2 mb-md-0"><input class="form-control" type="date" name="start" value="{{ request.args.get('start','') }}"></div>
-  <div class="col-12 col-md-2 mb-2 mb-md-0"><input class="form-control" type="date" name="end" value="{{ request.args.get('end','') }}"></div>
-  <div class="col-12 col-md-3 mb-2 mb-md-0">
+<form class="row g-2 mb-3">
+  <div class="col-12 col-md-3">
+    <input class="form-control" type="text" name="customer" placeholder="Kunde" value="{{ request.args.get('customer','') }}">
+  </div>
+  <div class="col-12 col-md-2">
+    <input class="form-control" type="date" name="start" value="{{ request.args.get('start','') }}">
+  </div>
+  <div class="col-12 col-md-2">
+    <input class="form-control" type="date" name="end" value="{{ request.args.get('end','') }}">
+  </div>
+  <div class="col-12 col-md-3">
     <select name="status" class="form-select">
       <option value="">Alle</option>
       {% for st in statuses %}
@@ -17,10 +19,13 @@
       {% endfor %}
     </select>
   </div>
-  <div class="col"><button type="submit" class="btn btn-primary">Filter</button></div>
-  <div class="col-12 col-md-2"><button type="submit" class="btn btn-primary w-100">Filter</button></div>
+  <div class="col-12 col-md-2 d-grid">
+    <button type="submit" class="btn btn-primary">Filter</button>
+  </div>
 </form>
-<a href="{{ url_for('main.new_order') }}" class="btn btn-success mb-3">Neue Bestellung</a>
+<div class="d-grid d-md-block mb-3">
+  <a href="{{ url_for('main.new_order') }}" class="btn btn-success">Neue Bestellung</a>
+</div>
 <div class="table-responsive">
 <table class="table table-striped">
   <thead><tr><th>ID</th><th>Kunde</th><th>Status</th><th>Datum</th><th>Summe</th><th></th></tr></thead>

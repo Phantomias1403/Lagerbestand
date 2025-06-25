@@ -16,6 +16,8 @@
   <div class="mb-3"><label class="form-label">Lagerort direkt</label><input class="form-control" name="location_primary" value="{{ article.location_primary if article else '' }}"></div>
   <div class="mb-3"><label class="form-label">Lagerort Auffüllager</label><input class="form-control" name="location_secondary" value="{{ article.location_secondary if article else '' }}"></div>
   <div class="mb-3"><label class="form-label">Bild URL (optional)</label><input class="form-control" name="image" value="{{ article.image if article else '' }}"></div>
-  <button type="submit" class="btn btn-primary">Speichern</button>
+  <div class="d-grid d-md-block">
+    <button type="submit" class="btn btn-primary">Speichern</button>
+  </div>
 </form>
 {% endblock %}
