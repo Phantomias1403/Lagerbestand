@@ -91,6 +91,7 @@ def new_article():
             sku=request.form['sku'],
             category=request.form['category'],
             stock=int(request.form['stock']),
+            minimum_stock=int(request.form.get('minimum_stock', 0)),
             location_primary=request.form['location_primary'],
             location_secondary=request.form['location_secondary'],
             image=request.form.get('image')
@@ -115,6 +116,7 @@ def edit_article(article_id):
         article.sku = request.form['sku']
         article.category = request.form['category']
         article.stock = int(request.form['stock'])
+        article.minimum_stock = int(request.form.get('minimum_stock', 0))
         article.location_primary = request.form['location_primary']
         article.location_secondary = request.form['location_secondary']
         article.image = request.form.get('image')
@@ -150,10 +152,13 @@ def new_movement(article_id):
     if request.method == 'POST':
         qty = int(request.form['quantity'])
         note = request.form.get('note')
-        movement = Movement(article_id=article.id, quantity=qty, note=note)
+        mtype = request.form.get('type', 'Wareneingang')
+        movement = Movement(article_id=article.id, quantity=qty, note=note, type=mtype)
         article.stock += qty
         db.session.add(movement)
         db.session.commit()
+        if article.stock < article.minimum_stock:
+            flash('Bestand unter Mindestbestand!')
         flash('Bewegung erfasst')
         return redirect(url_for('main.article_history', article_id=article.id))
     return render_template('movement_form.html', article=article)
@@ -203,9 +208,9 @@ def import_csv():
 def export_articles():
     si = StringIO()
     writer = csv.writer(si)
-    writer.writerow(['name', 'sku', 'stock', 'category', 'location_primary', 'location_secondary'])
+    writer.writerow(['name', 'sku', 'stock', 'minimum_stock', 'category', 'location_primary', 'location_secondary'])
     for a in Article.query.all():
-        writer.writerow([a.name, a.sku, a.stock, a.category, a.location_primary, a.location_secondary])
+        writer.writerow([a.name, a.sku, a.stock, a.minimum_stock, a.category, a.location_primary, a.location_secondary])
     output = si.getvalue()
     return Response(output, mimetype='text/csv', headers={'Content-Disposition': 'attachment;filename=articles.csv'})
 
@@ -215,9 +220,9 @@ def export_articles():
 def export_movements():
     si = StringIO()
     writer = csv.writer(si)
-    writer.writerow(['article_sku','article_name', 'quantity', 'note', 'timestamp'])
+    writer.writerow(['article_sku','article_name', 'quantity', 'type', 'note', 'timestamp'])
     for m in Movement.query.all():
-        writer.writerow([m.article.sku,m.article.name, m.quantity, m.note, m.timestamp])
+        writer.writerow([m.article.sku,m.article.name, m.quantity, m.type, m.note, m.timestamp])
     output = si.getvalue()
     return Response(output, mimetype='text/csv', headers={'Content-Disposition': 'attachment;filename=movements.csv'})
 
@@ -352,7 +357,7 @@ def new_order():
                 db.session.add(item)
                 if order.status in ['offen', 'bezahlt']:
                     article.stock -= qty
-                    movements.append(Movement(article_id=article.id, quantity=-qty, note=f'Bestellung #{order.id}', order_id=order.id))
+                    movements.append(Movement(article_id=article.id, quantity=-qty, note=f'Bestellung #{order.id}', order_id=order.id, type='Warenausgang'))
         for m in movements:
             db.session.add(m)
         db.session.commit()
