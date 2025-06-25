@@ -227,6 +227,42 @@ def export_movements():
     return Response(output, mimetype='text/csv', headers={'Content-Disposition': 'attachment;filename=movements.csv'})
 
 
+@bp.route('/inventory', methods=['GET', 'POST'])
+@login_optional
+@admin_required
+def inventory():
+    query = Article.query
+    search = request.args.get('search')
+    if search:
+        query = query.filter((Article.name.contains(search)) | (Article.sku.contains(search)))
+    category = request.args.get('category')
+    if category:
+        query = query.filter_by(category=category)
+    articles = query.all()
+    categories = ['Sticker', 'Schal', 'Shirt']
+
+    if request.method == 'POST' and 'search' not in request.form:
+        adjusted = 0
+        for article in articles:
+            val = request.form.get(f'count_{article.id}')
+            if val is not None and val != '':
+                counted = int(val)
+                diff = counted - article.stock
+                if diff != 0:
+                    movement = Movement(article_id=article.id, quantity=diff, type='Inventur', note='Inventur')
+                    article.stock = counted
+                    db.session.add(movement)
+                    adjusted += 1
+        if adjusted:
+            db.session.commit()
+        flash(f'Inventur erfolgreich gespeichert – {adjusted} Artikel angepasst.')
+        return redirect(url_for('main.inventory'))
+
+    return render_template('inventory.html', articles=articles, categories=categories, selected_category=category)
+
+
+
+
 # Bestellungen
 @bp.route('/orders')
 @login_optional
