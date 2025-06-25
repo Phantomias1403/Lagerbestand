@@ -5,8 +5,11 @@
   <div class="mb-3"><label class="form-label">Kunde</label>
     <input class="form-control" name="customer_name" value="{{ order.customer_name if order else '' }}" required>
   </div>
-  <div class="mb-3"><label class="form-label">Adresse</label>
-    <textarea class="form-control" name="customer_address" rows="3">{{ order.customer_address if order else '' }}</textarea>
+  <div class="mb-3"><label class="form-label">Straße und Hausnummer</label>
+    <input class="form-control" name="customer_street" value="{{ addr_street }}">
+  </div>
+  <div class="mb-3"><label class="form-label">PLZ und Ort</label>
+    <input class="form-control" name="customer_city_zip" value="{{ addr_city_zip }}">
   </div>
   <div class="mb-3"><label class="form-label">Status</label>
     <select name="status" class="form-select">
