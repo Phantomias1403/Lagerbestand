@@ -165,8 +165,20 @@ def new_movement(article_id):
 def import_csv():
     if request.method == 'POST':
         file = request.files['file']
-        stream = StringIO(file.stream.read().decode('utf-8'))
+        # BOM entfernen + in StringIO packen
+        content = file.stream.read().decode('utf-8-sig')
+        stream = StringIO(content)
+
+        # CSV einlesen
         reader = csv.DictReader(stream)
+
+        # Felder prüfen
+        expected_fields = ['name', 'sku', 'stock', 'category', 'location_primary', 'location_secondary']
+        if reader.fieldnames != expected_fields:
+            flash(f'CSV-Spalten stimmen nicht. Erwartet: {expected_fields}, gefunden: {reader.fieldnames}')
+            return redirect(url_for('main.import_csv'))
+
+        # Verarbeitung starten
         for row in reader:
             article = Article.query.filter_by(sku=row['sku']).first()
             if not article:
@@ -177,10 +189,13 @@ def import_csv():
             article.category = row['category']
             article.location_primary = row.get('location_primary')
             article.location_secondary = row.get('location_secondary')
+
         db.session.commit()
         flash('Import abgeschlossen')
         return redirect(url_for('main.index'))
+
     return render_template('import.html')
+
 
 
 @bp.route('/export/articles')
