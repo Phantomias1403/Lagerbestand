@@ -2,7 +2,9 @@
 {% block content %}
 <h1>Historie für {{ article.name }}</h1>
 <p>Aktueller Bestand: {{ article.stock }}</p>
-<a class="btn btn-success mb-3" href="{{ url_for('main.new_movement', article_id=article.id) }}">Neue Bewegung</a>
+<div class="d-grid d-md-block mb-3">
+  <a class="btn btn-success" href="{{ url_for('main.new_movement', article_id=article.id) }}">Neue Bewegung</a>
+</div>
 <div class="table-responsive">
 <table class="table table-striped">
   <thead><tr><th>Datum</th><th>Menge</th><th>Typ</th><th>Notiz</th></tr></thead>
