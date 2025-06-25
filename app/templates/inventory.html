@@ -1,0 +1,32 @@
+{% extends 'layout.html' %}
+{% block content %}
+<h1>Inventur</h1>
+<form method="get" class="mb-3">
+  <div class="row mb-3">
+    <div class="col"><input type="text" name="search" class="form-control" placeholder="Suche" value="{{ request.args.get('search','') }}"></div>
+    <div class="col"><select name="category" class="form-select">
+        <option value="">Alle Kategorien</option>
+        {% for cat in categories %}
+        <option value="{{ cat }}" {% if selected_category == cat %}selected{% endif %}>{{ cat }}</option>
+        {% endfor %}
+    </select></div>
+    <div class="col"><button type="submit" class="btn btn-primary">Filter</button></div>
+  </div>
+</form>
+<form method="post">
+<table class="table table-striped">
+  <thead><tr><th>Artikel</th><th>SKU</th><th>Aktueller Bestand</th><th>Gezählter Bestand</th></tr></thead>
+  <tbody>
+    {% for a in articles %}
+    <tr>
+      <td>{{ a.name }}</td>
+      <td>{{ a.sku }}</td>
+      <td>{{ a.stock }}</td>
+      <td><input type="number" class="form-control" name="count_{{ a.id }}" placeholder="-" ></td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+<button type="submit" class="btn btn-success">Speichern</button>
+</form>
+{% endblock %}
