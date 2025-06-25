@@ -322,6 +322,8 @@ def order_label(order_id):
                 headers={'Content-Disposition': f'attachment;filename=order_{order.id}_label.pdf'})
 
 
+
+
 @bp.route('/orders/new', methods=['GET', 'POST'])
 @login_optional
 @admin_required
@@ -329,8 +331,11 @@ def new_order():
     statuses = ['offen', 'bezahlt', 'versendet']
     articles = Article.query.all()
     if request.method == 'POST':
+        street = request.form.get('customer_street', '')
+        city_zip = request.form.get('customer_city_zip', '')
+        address = f"{street}\n{city_zip}" if street or city_zip else None
         order = Order(customer_name=request.form['customer_name'],
-                      customer_address=request.form.get('customer_address'),
+                      customer_address=address,
                       status=request.form['status'])
         db.session.add(order)
         db.session.flush()
@@ -353,7 +358,8 @@ def new_order():
         db.session.commit()
         flash('Bestellung angelegt')
         return redirect(url_for('main.order_detail', order_id=order.id))
-    return render_template('order_form.html', articles=articles, statuses=statuses)
+    return render_template('order_form.html', articles=articles, statuses=statuses,
+                           addr_street='', addr_city_zip='')
 
 
 @bp.route('/orders/<int:order_id>/edit', methods=['GET', 'POST'])
@@ -364,9 +370,20 @@ def edit_order(order_id):
     order = Order.query.get_or_404(order_id)
     if request.method == 'POST':
         order.customer_name = request.form['customer_name']
-        order.customer_address = request.form.get('customer_address')
+        street = request.form.get('customer_street', '')
+        city_zip = request.form.get('customer_city_zip', '')
+        order.customer_address = f"{street}\n{city_zip}" if street or city_zip else None
         order.status = request.form['status']
         db.session.commit()
         flash('Bestellung aktualisiert')
         return redirect(url_for('main.order_detail', order_id=order.id))
-    return render_template('order_form.html', order=order, statuses=statuses, articles=None)
+    street = ''
+    city_zip = ''
+    if order.customer_address:
+        lines = order.customer_address.splitlines()
+        if len(lines) > 0:
+            street = lines[0]
+        if len(lines) > 1:
+            city_zip = lines[1]
+    return render_template('order_form.html', order=order, statuses=statuses, articles=None,
+                           addr_street=street, addr_city_zip=city_zip)
