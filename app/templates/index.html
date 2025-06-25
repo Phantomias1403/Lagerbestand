@@ -4,14 +4,18 @@
 <form class="row mb-3">
   <div class="col"><input type="text" name="search" class="form-control" placeholder="Suche" value="{{ request.args.get('search','') }}"></div>
   <div class="col"><select name="category" class="form-select">
+  <div class="col-12 col-md-4 mb-2 mb-md-0"><input type="text" name="search" class="form-control" placeholder="Suche" value="{{ request.args.get('search','') }}"></div>
+  <div class="col-12 col-md-4 mb-2 mb-md-0"><select name="category" class="form-select">
       <option value="">Alle Kategorien</option>
       {% for cat in categories %}
       <option value="{{ cat }}" {% if selected_category == cat %}selected{% endif %}>{{ cat }}</option>
       {% endfor %}
   </select></div>
   <div class="col"><button type="submit" class="btn btn-primary">Filter</button></div>
+  <div class="col-12 col-md-4"><button type="submit" class="btn btn-primary w-100">Filter</button></div>
 </form>
 <a class="btn btn-success mb-3" href="{{ url_for('main.new_article') }}">Neuer Artikel</a>
+<div class="table-responsive">
 <table class="table table-striped">
   <thead><tr><th>Name</th><th>SKU</th><th>Kategorie</th><th>Bild</th><th>Bestand</th><th>Mindestbestand</th><th>Lagerort</th><th>Auffüllager</th><th>Aktionen</th></tr></thead>
   <tbody>
@@ -40,4 +44,5 @@
     {% endfor %}
   </tbody>
 </table>
+</div>
 {% endblock %}
