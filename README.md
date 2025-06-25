@@ -19,9 +19,18 @@ kann sie über die Umgebungsvariable `ENABLE_USER_MANAGEMENT=1` aktiviert werden
 Beim ersten Start mit aktivierter Benutzerverwaltung wird automatisch ein
 Admin-Benutzer `admin` mit Passwort `admin` angelegt.
 
+Jeder Artikel besitzt nun einen optionalen Mindestbestand. Im Dashboard wird
+ein Artikel rot markiert, sobald sein aktueller Lagerbestand unter diesen Wert
+fällt. Bei Bewegungen erscheint zudem eine Warnung, wenn der Bestand nach einer
+Änderung unter den Mindestbestand sinkt.
+
+Bewegungen können verschiedene Typen wie "Wareneingang" oder "Verlust"
+besitzen. Dieser Typ wird in der Historie sowie im CSV‑Export mit aufgeführt.
+
+
 Bei Bestellungen wird der Lagerbestand der enthaltenen Artikel automatisch
 reduziert, sofern die Bestellung den Status "offen" oder "bezahlt" besitzt. Die
-Abgänge werden in den Lagerbewegungen vermerkt.
+Abgänge werden als Warenausgang in den Lagerbewegungen vermerkt.
 
 Über die Detailansicht einer Bestellung kann zudem ein PDF-Versandetikett
 erstellt werden (ab Status "bezahlt"). Das Etikett hat nun das Format 100 x 50 mm
