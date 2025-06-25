@@ -28,6 +28,7 @@ class Article(db.Model):
     sku = db.Column(db.String(64), unique=True, nullable=False)
     category = db.Column(db.String(50), nullable=False)
     stock = db.Column(db.Integer, default=0)
+    minimum_stock = db.Column(db.Integer, default=0)
     location_primary = db.Column(db.String(80))
     location_secondary = db.Column(db.String(80))
     image = db.Column(db.String(200))
@@ -40,6 +41,7 @@ class Movement(db.Model):
     article_id = db.Column(db.Integer, db.ForeignKey('article.id'), nullable=False)
     quantity = db.Column(db.Integer, nullable=False)
     note = db.Column(db.String(200))
+    type = db.Column(db.String(20), default='Wareneingang', nullable=False)
     order_id = db.Column(db.Integer, db.ForeignKey('order.id'))
     timestamp = db.Column(db.DateTime, default=datetime.utcnow)
 class Order(db.Model):
