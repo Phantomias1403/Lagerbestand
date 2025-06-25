@@ -270,22 +270,30 @@ def order_label(order_id):
         return redirect(url_for('main.order_detail', order_id=order.id))
     from fpdf import FPDF
 
-    pdf = FPDF(unit='mm', format=(50, 100))
-    pdf.set_margins(5, 5, 5)
+    # Neues kompaktes Etikett im Format 100x50 mm
+    pdf = FPDF(unit='mm', format=(100, 50))
     pdf.add_page()
     pdf.set_auto_page_break(False)
-    pdf.set_font('Arial', size=12)
-    sender = 'Fan-Kultur Xperience GmbH\nHauptstraße 20'
-    pdf.multi_cell(0, 10, f'Absender:\n{sender}')
-    pdf.ln(5)
-    recipient = f'{order.customer_name}\n{order.customer_address or ""}'
-    pdf.multi_cell(0, 10, f'Empfänger:\n{recipient}')
-    pdf.ln(5)
-    pdf.cell(0, 10, f'Bestellnummer: {order.id}', ln=True)
-    pdf.ln(5)
-    pdf.cell(0, 10, 'Artikel:', ln=True)
-    for item in order.items:
-        pdf.cell(0, 10, f'{item.quantity} x {item.article.name}', ln=True)
+
+    # Titel
+    pdf.set_font('Helvetica', 'B', 14)
+    pdf.cell(0, 8, 'Versandetikett Fan-Kultur - Neu', ln=True, align='C')
+
+    pdf.set_font('Helvetica', '', 10)
+    pdf.ln(1)
+    sender = 'Fan-Kultur Xperience GmbH, Hauptstr. 20, 55288 Armsheim'
+    pdf.multi_cell(0, 5, f'Absender: {sender}', align='C')
+
+    pdf.ln(2)
+    pdf.set_font('Helvetica', '', 12)
+    pdf.multi_cell(0, 5, order.customer_name, align='C')
+    if order.customer_address:
+        pdf.multi_cell(0, 5, order.customer_address, align='C')
+
+    pdf.ln(2)
+    pdf.cell(0, 5, 'An:', ln=True, align='C')
+    pdf.set_font('Helvetica', 'B', 12)
+    pdf.cell(0, 5, 'www.fan-kultur.de', align='C')
 
     return Response(pdf.output(dest='S').encode('latin-1'), mimetype='application/pdf',
                     headers={'Content-Disposition': f'attachment;filename=order_{order.id}_label.pdf'})
