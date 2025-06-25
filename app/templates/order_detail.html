@@ -5,6 +5,7 @@
 <p>Adresse:<br>{{ order.customer_address|replace('\n','<br>')|safe }}</p>
 <p>Status: {{ order.status }}</p>
 <p>Datum: {{ order.created_at }}</p>
+<div class="table-responsive">
 <table class="table table-striped">
   <thead><tr><th>Artikel</th><th>Menge</th><th>Stückpreis</th><th>Summe</th></tr></thead>
   <tbody>
@@ -22,6 +23,7 @@
   </tr>
   </tbody>
 </table>
+</div>
 <a href="{{ url_for('main.edit_order', order_id=order.id) }}" class="btn btn-primary">Bearbeiten</a>
 {% if order.status in ['bezahlt', 'versendet'] %}
 <a href="{{ url_for('main.order_label', order_id=order.id) }}" class="btn btn-secondary">Versandetikett erzeugen</a>
