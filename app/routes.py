@@ -1,7 +1,16 @@
 import csv
 from io import StringIO
-from flask import render_template, redirect, url_for, request, flash, Response, current_app
-from flask_login import login_user, logout_user, login_required, current_user
+from flask import (
+    Blueprint,
+    Response,
+    current_app,
+    flash,
+    redirect,
+    render_template,
+    request,
+    url_for,
+)
+from flask_login import current_user, login_required, login_user, logout_user
 
 from . import db
 from .models import User, Article, Movement, Order, OrderItem
@@ -29,7 +38,6 @@ def login_optional(func):
     return wrapper
 
 
-from flask import Blueprint
 bp = Blueprint('main', __name__)
 
 
@@ -157,8 +165,20 @@ def new_movement(article_id):
 def import_csv():
     if request.method == 'POST':
         file = request.files['file']
-        stream = StringIO(file.stream.read().decode('utf-8'))
+        # BOM entfernen + in StringIO packen
+        content = file.stream.read().decode('utf-8-sig')
+        stream = StringIO(content)
+
+        # CSV einlesen
         reader = csv.DictReader(stream)
+
+        # Felder prüfen
+        expected_fields = ['name', 'sku', 'stock', 'category', 'location_primary', 'location_secondary']
+        if reader.fieldnames != expected_fields:
+            flash(f'CSV-Spalten stimmen nicht. Erwartet: {expected_fields}, gefunden: {reader.fieldnames}')
+            return redirect(url_for('main.import_csv'))
+
+        # Verarbeitung starten
         for row in reader:
             article = Article.query.filter_by(sku=row['sku']).first()
             if not article:
@@ -169,10 +189,13 @@ def import_csv():
             article.category = row['category']
             article.location_primary = row.get('location_primary')
             article.location_secondary = row.get('location_secondary')
+
         db.session.commit()
         flash('Import abgeschlossen')
         return redirect(url_for('main.index'))
+
     return render_template('import.html')
+
 
 
 @bp.route('/export/articles')
@@ -238,6 +261,7 @@ def order_detail(order_id):
 
 
 @bp.route('/orders/<int:order_id>/label')
+@bp.route('/order/<int:order_id>/label')
 @login_optional
 def order_label(order_id):
     order = Order.query.get_or_404(order_id)
@@ -247,7 +271,10 @@ def order_label(order_id):
     from fpdf import FPDF
 
     pdf = FPDF(unit='mm', format=(100, 50))
+    pdf.set_margins(5, 5, 5)
+
     pdf.add_page()
+    pdf.set_auto_page_break(False)
     pdf.set_font('Arial', size=12)
     sender = 'Fan-Kultur Xperience GmbH\nHauptstraße 20'
     pdf.multi_cell(0, 10, f'Absender:\n{sender}')
@@ -260,6 +287,26 @@ def order_label(order_id):
     pdf.cell(0, 10, 'Artikel:', ln=True)
     for item in order.items:
         pdf.cell(0, 10, f'{item.quantity} x {item.article.name}', ln=True)
+
+    # Titel
+    pdf.set_font('Helvetica', 'B', 14)
+    pdf.cell(0, 8, 'Versandetikett Fan-Kultur - Neu', ln=True, align='C')
+
+    pdf.set_font('Helvetica', '', 10)
+    pdf.ln(1)
+    sender = 'Fan-Kultur Xperience GmbH, Hauptstr. 20, 55288 Armsheim'
+    pdf.multi_cell(0, 5, f'Absender: {sender}', align='C')
+
+    pdf.ln(2)
+    pdf.set_font('Helvetica', '', 12)
+    pdf.multi_cell(0, 5, order.customer_name, align='C')
+    if order.customer_address:
+        pdf.multi_cell(0, 5, order.customer_address, align='C')
+
+    pdf.ln(2)
+    pdf.cell(0, 5, 'An:', ln=True, align='C')
+    pdf.set_font('Helvetica', 'B', 12)
+    pdf.cell(0, 5, 'www.fan-kultur.de', align='C')
 
     return Response(pdf.output(dest='S').encode('latin-1'), mimetype='application/pdf',
                     headers={'Content-Disposition': f'attachment;filename=order_{order.id}_label.pdf'})
