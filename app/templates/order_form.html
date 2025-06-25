@@ -19,6 +19,7 @@
     </select>
   </div>
   {% if articles %}
+  <div class="table-responsive">
   <table class="table table-bordered">
     <thead><tr><th>Artikel</th><th>Menge</th><th>Stückpreis</th></tr></thead>
     <tbody>
@@ -31,6 +32,7 @@
       {% endfor %}
     </tbody>
   </table>
+  </div>
   {% endif %}
   <button type="submit" class="btn btn-primary">Speichern</button>
 </form>
