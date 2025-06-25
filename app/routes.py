@@ -268,35 +268,58 @@ def order_label(order_id):
     if order.status not in ['bezahlt', 'versendet']:
         flash('Versandetikett erst ab Status bezahlt verfügbar')
         return redirect(url_for('main.order_detail', order_id=order.id))
+
     from fpdf import FPDF
 
-    # Neues kompaktes Etikett im Format 100x50 mm
     pdf = FPDF(unit='mm', format=(100, 50))
-    pdf.add_page()
     pdf.set_auto_page_break(False)
+    pdf.add_page()
 
-    # Titel
-    pdf.set_font('Helvetica', 'B', 14)
-    pdf.cell(0, 8, 'Versandetikett Fan-Kultur - Neu', ln=True, align='C')
+    left = 5
+    top = 5
+    line_height = 5
+
+    # Absender
+    pdf.set_xy(left, top)
+    pdf.set_font('Helvetica', 'B', 10)
+    pdf.cell(0, line_height, 'Absender:', ln=True)
 
     pdf.set_font('Helvetica', '', 10)
-    pdf.ln(1)
-    sender = 'Fan-Kultur Xperience GmbH, Hauptstr. 20, 55288 Armsheim'
-    pdf.multi_cell(0, 5, f'Absender: {sender}', align='C')
+    pdf.set_x(left)
+    pdf.cell(0, line_height, 'Fan-Kultur Xperience GmbH', ln=True)
+    pdf.set_x(left)
+    pdf.cell(0, line_height, 'Hauptstr. 20', ln=True)
+    pdf.set_x(left)
+    pdf.cell(0, line_height, '55288 Armsheim', ln=True)
 
-    pdf.ln(2)
+    # Abstand nach Absender
+    pdf.ln(3)
+
+    # Empfänger
+    pdf.set_font('Helvetica', 'B', 10)
+    pdf.set_x(left)
+    pdf.cell(0, line_height, 'Empfänger:', ln=True)
+
     pdf.set_font('Helvetica', '', 12)
-    pdf.multi_cell(0, 5, order.customer_name, align='C')
-    if order.customer_address:
-        pdf.multi_cell(0, 5, order.customer_address, align='C')
+    pdf.set_x(left)
+    pdf.cell(0, line_height, order.customer_name, ln=True)
 
-    pdf.ln(2)
-    pdf.cell(0, 5, 'An:', ln=True, align='C')
-    pdf.set_font('Helvetica', 'B', 12)
-    pdf.cell(0, 5, 'www.fan-kultur.de', align='C')
+    if order.customer_address:
+        for line in order.customer_address.splitlines():
+            pdf.set_x(left)
+            pdf.cell(0, line_height, line, ln=True)
+
+    # Webadresse separat unten platzieren
+    #pdf.set_y(50 - 8)
+    #pdf.set_font('Helvetica', 'B', 11)
+    #pdf.set_x(left)
+    #pdf.cell(0, 6, 'www.fan-kultur.de', ln=True)
+
+
+
 
     return Response(pdf.output(dest='S').encode('latin-1'), mimetype='application/pdf',
-                    headers={'Content-Disposition': f'attachment;filename=order_{order.id}_label.pdf'})
+                headers={'Content-Disposition': f'attachment;filename=order_{order.id}_label.pdf'})
 
 
 @bp.route('/orders/new', methods=['GET', 'POST'])
