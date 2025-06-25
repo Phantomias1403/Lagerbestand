@@ -16,6 +16,16 @@ from . import db
 from .models import User, Article, Movement, Order, OrderItem
 
 
+MINDESTBESTAND = {
+    'sticker': 1000,
+    'schal': 100,
+    'shirt':10
+}
+
+def get_default_minimum_stock(category: str) -> int:
+    return MINDESTBESTAND.get(category.lower(), 0)
+
+
 def admin_required(func):
     from functools import wraps
     @wraps(func)
@@ -86,22 +96,27 @@ def new_article():
             flash('Artikel mit dieser SKU existiert bereits.')
             return redirect(url_for('main.new_article'))
 
+        category = request.form['category']
+        default_min = get_default_minimum_stock(category)
+
         article = Article(
             name=request.form['name'],
             sku=request.form['sku'],
-            category=request.form['category'],
+            category=category,
             stock=int(request.form['stock']),
-            minimum_stock=int(request.form.get('minimum_stock', 0)),
             location_primary=request.form['location_primary'],
             location_secondary=request.form['location_secondary'],
-            image=request.form.get('image')
+            image=request.form.get('image'),
+            minimum_stock=default_min
         )
         db.session.add(article)
         db.session.commit()
         flash('Artikel erstellt')
         return redirect(url_for('main.index'))
+
     categories = ['Sticker', 'Schal', 'Shirt']
     return render_template('article_form.html', categories=categories)
+
 
 
 @bp.route('/article/<int:article_id>/edit', methods=['GET', 'POST'])
@@ -170,36 +185,38 @@ def new_movement(article_id):
 def import_csv():
     if request.method == 'POST':
         file = request.files['file']
-        # BOM entfernen + in StringIO packen
         content = file.stream.read().decode('utf-8-sig')
         stream = StringIO(content)
-
-        # CSV einlesen
         reader = csv.DictReader(stream)
 
-        # Felder prüfen
         expected_fields = ['name', 'sku', 'stock', 'category', 'location_primary', 'location_secondary']
         if reader.fieldnames != expected_fields:
             flash(f'CSV-Spalten stimmen nicht. Erwartet: {expected_fields}, gefunden: {reader.fieldnames}')
             return redirect(url_for('main.import_csv'))
 
-        # Verarbeitung starten
         for row in reader:
             article = Article.query.filter_by(sku=row['sku']).first()
             if not article:
                 article = Article(sku=row['sku'])
                 db.session.add(article)
+
             article.name = row['name']
             article.stock = int(row['stock'])
             article.category = row['category']
             article.location_primary = row.get('location_primary')
             article.location_secondary = row.get('location_secondary')
 
+            try:
+                article.minimum_stock = int(row.get('minimum_stock', get_default_minimum_stock(article.category)))
+            except (ValueError, TypeError):
+                article.minimum_stock = get_default_minimum_stock(article.category)
+
         db.session.commit()
         flash('Import abgeschlossen')
         return redirect(url_for('main.index'))
 
     return render_template('import.html')
+
 
 
 
@@ -225,7 +242,6 @@ def export_movements():
         writer.writerow([m.article.sku,m.article.name, m.quantity, m.type, m.note, m.timestamp])
     output = si.getvalue()
     return Response(output, mimetype='text/csv', headers={'Content-Disposition': 'attachment;filename=movements.csv'})
-
 
 @bp.route('/inventory', methods=['GET', 'POST'])
 @login_optional
@@ -259,8 +275,6 @@ def inventory():
         return redirect(url_for('main.inventory'))
 
     return render_template('inventory.html', articles=articles, categories=categories, selected_category=category)
-
-
 
 
 # Bestellungen
