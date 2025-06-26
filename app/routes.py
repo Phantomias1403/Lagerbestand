@@ -50,6 +50,10 @@ def login_optional(func):
 
 bp = Blueprint('main', __name__)
 
+@bp.app_context_processor
+def inject_config():
+    return dict(enable_user_management=current_app.config.get('ENABLE_USER_MANAGEMENT', False))
+
 
 @bp.route('/')
 def index():
@@ -85,6 +89,32 @@ def login():
 def logout():
     logout_user()
     return redirect(url_for('main.index'))
+
+@bp.route('/profile', methods=['GET', 'POST'])
+@login_optional
+def profile():
+    if not current_app.config.get('ENABLE_USER_MANAGEMENT'):
+        return redirect(url_for('main.index'))
+
+    if request.method == 'POST':
+        username = request.form.get('username', '').strip()
+        password = request.form.get('password', '').strip()
+
+        if username and username != current_user.username:
+            if User.query.filter_by(username=username).first():
+                flash('Benutzername existiert bereits.')
+                return redirect(url_for('main.profile'))
+            current_user.username = username
+
+        if password:
+            current_user.set_password(password)
+
+        db.session.commit()
+        flash('Profil aktualisiert')
+        return redirect(url_for('main.profile'))
+
+    return render_template('profile.html')
+
 
 
 @bp.route('/article/new', methods=['GET', 'POST'])
@@ -297,23 +327,65 @@ def inventory():
     categories = ['Sticker', 'Schal', 'Shirt']
 
     if request.method == 'POST' and 'search' not in request.form:
-        adjusted = 0
-        for article in articles:
-            val = request.form.get(f'count_{article.id}')
-            if val is not None and val != '':
-                counted = int(val)
-                diff = counted - article.stock
-                if diff != 0:
-                    movement = Movement(article_id=article.id, quantity=diff, type='Inventur', note='Inventur')
-                    article.stock = counted
-                    db.session.add(movement)
+        file = request.files.get('file')
+        if file and file.filename:
+            adjusted = 0
+            data = file.read()
+            for enc in ('utf-8-sig', 'latin1'):
+                try:
+                    text = data.decode(enc)
+                    break
+                except UnicodeDecodeError:
+                    text = None
+            if text is None:
+                flash('Datei konnte nicht verarbeitet werden (Encoding).')
+                return redirect(url_for('main.inventory'))
+
+            reader = csv.DictReader(StringIO(text), delimiter=';')
+            if 'Posten: Artikelnummer' not in reader.fieldnames or 'Posten: Anzahl' not in reader.fieldnames:
+                flash('Erforderliche Spalten fehlen.')
+                return redirect(url_for('main.inventory'))
+
+            try:
+                for row in reader:
+                    sku = row.get('Posten: Artikelnummer', '').strip()
+                    qty = row.get('Posten: Anzahl', '').strip()
+                    if not sku or not qty:
+                        continue
+                    try:
+                        qty = int(qty)
+                    except ValueError:
+                        continue
+
+                    article = Article.query.filter_by(sku=sku).first()
+                    if not article:
+                        continue
+
+                    if article.category and article.category.lower() == 'sticker':
+                        qty *= 100
+
+                    article.stock -= qty
+                    db.session.add(Movement(
+                        article_id=article.id,
+                        quantity=-qty,
+                        type='Warenausgang',
+                        note='Import Export-Datei'
+                    ))
                     adjusted += 1
-        if adjusted:
-            db.session.commit()
-        flash(f'Inventur erfolgreich gespeichert – {adjusted} Artikel angepasst.')
-        return redirect(url_for('main.inventory'))
+            except Exception as e:
+                flash('Fehler beim Verarbeiten der Datei.')
+                return redirect(url_for('main.inventory'))
+
+            if adjusted:
+                db.session.commit()
+                flash(f'CSV-Import abgeschlossen – {adjusted} Artikel angepasst.')
+            else:
+                flash('CSV-Import abgeschlossen – Keine passenden Artikel gefunden.')
+
+            return redirect(url_for('main.inventory'))
 
     return render_template('inventory.html', articles=articles, categories=categories, selected_category=category)
+
 
 
 # Bestellungen
