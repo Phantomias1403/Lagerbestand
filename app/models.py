@@ -68,3 +68,7 @@ class OrderItem(db.Model):
 
     article = db.relationship('Article')
 
+class Setting(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    key = db.Column(db.String(100), unique=True, nullable=False)
+    value = db.Column(db.String(255), nullable=False)
