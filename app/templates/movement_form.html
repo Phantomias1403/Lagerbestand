@@ -3,6 +3,15 @@
 <h1>Bewegung für {{ article.name }}</h1>
 <form method="post">
   <div class="mb-3"><label class="form-label">Menge (+/-)</label><input type="number" class="form-control" name="quantity" required></div>
+  <div class="mb-3"><label class="form-label">Typ</label>
+    <select name="type" class="form-select">
+      <option value="Wareneingang">Wareneingang</option>
+      <option value="Warenausgang">Warenausgang</option>
+      <option value="Verlust">Verlust</option>
+      <option value="Korrektur">Korrektur</option>
+      <option value="Inventur">Inventur</option>
+    </select>
+  </div>
   <div class="mb-3"><label class="form-label">Notiz</label><input class="form-control" name="note"></div>
   <button type="submit" class="btn btn-primary">Speichern</button>
 </form>

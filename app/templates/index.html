@@ -4,28 +4,35 @@
 <form class="row mb-3">
   <div class="col"><input type="text" name="search" class="form-control" placeholder="Suche" value="{{ request.args.get('search','') }}"></div>
   <div class="col"><select name="category" class="form-select">
+  <div class="col-12 col-md-4 mb-2 mb-md-0"><input type="text" name="search" class="form-control" placeholder="Suche" value="{{ request.args.get('search','') }}"></div>
+  <div class="col-12 col-md-4 mb-2 mb-md-0"><select name="category" class="form-select">
       <option value="">Alle Kategorien</option>
       {% for cat in categories %}
       <option value="{{ cat }}" {% if selected_category == cat %}selected{% endif %}>{{ cat }}</option>
       {% endfor %}
   </select></div>
   <div class="col"><button type="submit" class="btn btn-primary">Filter</button></div>
+  <div class="col-12 col-md-4"><button type="submit" class="btn btn-primary w-100">Filter</button></div>
 </form>
 <a class="btn btn-success mb-3" href="{{ url_for('main.new_article') }}">Neuer Artikel</a>
+<div class="table-responsive">
 <table class="table table-striped">
-  <thead><tr><th>Name</th><th>SKU</th><th>Kategorie</th><th>Bestand</th><th>Aktionen</th></tr></thead>
+  <thead><tr><th>Name</th><th>SKU</th><th>Kategorie</th><th>Bild</th><th>Bestand</th><th>Mindestbestand</th><th>Lagerort</th><th>Auffüllager</th><th>Aktionen</th></tr></thead>
   <tbody>
     {% for a in articles %}
-    <tr>
+    <tr class="{% if a.stock < a.minimum_stock %}table-danger{% endif %}">
       <td>{{ a.name }}</td>
       <td>{{ a.sku }}</td>
       <td>{{ a.category }}</td>
       <td>
         {% if a.image %}
-        <img src="{{ a.image }}" alt="Bild" style="max-height: 60px;">
+        <!--<img src="{{ a.image }}" style="max-height: 60px;">-->
         {% endif %}
       </td>
       <td>{{ a.stock }}</td>
+      <td>{{ a.minimum_stock }}</td>
+      <td>{{ a.location_primary }}</td>
+      <td>{{ a.location_secondary }}</td>
       <td>
         <a class="btn btn-sm btn-primary" href="{{ url_for('main.edit_article', article_id=a.id) }}">Bearbeiten</a>
         <a class="btn btn-sm btn-secondary" href="{{ url_for('main.article_history', article_id=a.id) }}">Historie</a>
@@ -37,4 +44,5 @@
     {% endfor %}
   </tbody>
 </table>
+</div>
 {% endblock %}

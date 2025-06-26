@@ -1,0 +1,31 @@
+{% extends 'layout.html' %}
+{% block content %}
+<h1>Bestellung #{{ order.id }}</h1>
+<p>Kunde: {{ order.customer_name }}</p>
+<p>Adresse:<br>{{ order.customer_address|replace('\n','<br>')|safe }}</p>
+<p>Status: {{ order.status }}</p>
+<p>Datum: {{ order.created_at }}</p>
+<div class="table-responsive">
+<table class="table table-striped">
+  <thead><tr><th>Artikel</th><th>Menge</th><th>Stückpreis</th><th>Summe</th></tr></thead>
+  <tbody>
+  {% for item in order.items %}
+  <tr>
+    <td>{{ item.article.name }}</td>
+    <td>{{ item.quantity }}</td>
+    <td>{{ '%.2f'|format(item.unit_price) }}</td>
+    <td>{{ '%.2f'|format(item.quantity * item.unit_price) }}</td>
+  </tr>
+  {% endfor %}
+  <tr>
+    <th colspan="3">Gesamt</th>
+    <th>{{ '%.2f'|format(order.total_price) }}</th>
+  </tr>
+  </tbody>
+</table>
+</div>
+<a href="{{ url_for('main.edit_order', order_id=order.id) }}" class="btn btn-primary">Bearbeiten</a>
+{% if order.status in ['bezahlt', 'versendet'] %}
+<a href="{{ url_for('main.order_label', order_id=order.id) }}" class="btn btn-secondary">Versandetikett erzeugen</a>
+{% endif %}
+{% endblock %}

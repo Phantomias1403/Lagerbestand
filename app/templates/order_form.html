@@ -1,0 +1,39 @@
+{% extends 'layout.html' %}
+{% block content %}
+<h1>{% if order %}Bestellung bearbeiten{% else %}Neue Bestellung{% endif %}</h1>
+<form method="post">
+  <div class="mb-3"><label class="form-label">Kunde</label>
+    <input class="form-control" name="customer_name" value="{{ order.customer_name if order else '' }}" required>
+  </div>
+  <div class="mb-3"><label class="form-label">Straße und Hausnummer</label>
+    <input class="form-control" name="customer_street" value="{{ addr_street }}">
+  </div>
+  <div class="mb-3"><label class="form-label">PLZ und Ort</label>
+    <input class="form-control" name="customer_city_zip" value="{{ addr_city_zip }}">
+  </div>
+  <div class="mb-3"><label class="form-label">Status</label>
+    <select name="status" class="form-select">
+      {% for st in statuses %}
+      <option value="{{ st }}" {% if order and order.status==st %}selected{% endif %}>{{ st }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  {% if articles %}
+  <div class="table-responsive">
+  <table class="table table-bordered">
+    <thead><tr><th>Artikel</th><th>Menge</th><th>Stückpreis</th></tr></thead>
+    <tbody>
+      {% for a in articles %}
+      <tr>
+        <td>{{ a.name }}</td>
+        <td><input type="number" name="qty_{{ a.id }}" class="form-control" value="0" min="0"></td>
+        <td><input type="number" step="0.01" name="price_{{ a.id }}" class="form-control" value="0"></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% endif %}
+  <button type="submit" class="btn btn-primary">Speichern</button>
+</form>
+{% endblock %}

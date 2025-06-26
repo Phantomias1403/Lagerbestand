@@ -28,6 +28,7 @@ class Article(db.Model):
     sku = db.Column(db.String(64), unique=True, nullable=False)
     category = db.Column(db.String(50), nullable=False)
     stock = db.Column(db.Integer, default=0)
+    minimum_stock = db.Column(db.Integer, default=0)
     location_primary = db.Column(db.String(80))
     location_secondary = db.Column(db.String(80))
     image = db.Column(db.String(200))
@@ -40,4 +41,30 @@ class Movement(db.Model):
     article_id = db.Column(db.Integer, db.ForeignKey('article.id'), nullable=False)
     quantity = db.Column(db.Integer, nullable=False)
     note = db.Column(db.String(200))
+    type = db.Column(db.String(20), default='Wareneingang', nullable=False)
+    order_id = db.Column(db.Integer, db.ForeignKey('order.id'))
     timestamp = db.Column(db.DateTime, default=datetime.utcnow)
+class Order(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    customer_name = db.Column(db.String(120), nullable=False)
+    customer_address = db.Column(db.String(200))
+    status = db.Column(db.String(20), default='offen')
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    items = db.relationship('OrderItem', backref='order', lazy=True, cascade='all, delete-orphan')
+    movements = db.relationship('Movement', backref='order', lazy=True)
+
+    @property
+    def total_price(self):
+        return sum(item.quantity * item.unit_price for item in self.items)
+
+
+class OrderItem(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    order_id = db.Column(db.Integer, db.ForeignKey('order.id'), nullable=False)
+    article_id = db.Column(db.Integer, db.ForeignKey('article.id'), nullable=False)
+    quantity = db.Column(db.Integer, nullable=False)
+    unit_price = db.Column(db.Float, nullable=False)
+
+    article = db.relationship('Article')
+
