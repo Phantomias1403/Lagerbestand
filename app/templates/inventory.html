@@ -1,37 +1,58 @@
 {% extends 'layout.html' %}
 {% block content %}
 <h1>Inventur</h1>
+
 <form method="get" class="mb-3">
-  <div class="row mb-3">
-    <div class="col"><input type="text" name="search" class="form-control" placeholder="Suche" value="{{ request.args.get('search','') }}"></div>
-    <div class="col"><select name="category" class="form-select">
-    <div class="col-12 col-md-4 mb-2 mb-md-0"><input type="text" name="search" class="form-control" placeholder="Suche" value="{{ request.args.get('search','') }}"></div>
-    <div class="col-12 col-md-4 mb-2 mb-md-0"><select name="category" class="form-select">
+  <div class="row g-2 mb-3">
+    <div class="col-12 col-md-4">
+      <input type="text" name="search" class="form-control" placeholder="Suche" value="{{ request.args.get('search','') }}">
+    </div>
+    <div class="col-12 col-md-4">
+      <select name="category" class="form-select">
         <option value="">Alle Kategorien</option>
         {% for cat in categories %}
         <option value="{{ cat }}" {% if selected_category == cat %}selected{% endif %}>{{ cat }}</option>
         {% endfor %}
-    </select></div>
-    <div class="col"><button type="submit" class="btn btn-primary">Filter</button></div>
-    <div class="col-12 col-md-4"><button type="submit" class="btn btn-primary w-100">Filter</button></div>
+      </select>
+    </div>
+    <div class="col-12 col-md-4 d-grid">
+      <button type="submit" class="btn btn-primary">Filter</button>
+    </div>
   </div>
 </form>
-<form method="post">
-<div class="table-responsive">
-<table class="table table-striped">
-  <thead><tr><th>Artikel</th><th>SKU</th><th>Aktueller Bestand</th><th>Gezählter Bestand</th></tr></thead>
-  <tbody>
-    {% for a in articles %}
-    <tr>
-      <td>{{ a.name }}</td>
-      <td>{{ a.sku }}</td>
-      <td>{{ a.stock }}</td>
-      <td><input type="number" class="form-control" name="count_{{ a.id }}" placeholder="-" ></td>
-    </tr>
-    {% endfor %}
-  </tbody>
-</table>
-</div>
-<button type="submit" class="btn btn-success">Speichern</button>
+
+<!-- CSV-Import Formular -->
+<form method="post" enctype="multipart/form-data" class="mb-4">
+  <div class="row g-2">
+    <div class="col-12 col-md-6">
+      <input type="file" name="file" class="form-control" accept=".csv">
+    </div>
+    <div class="col-12 col-md-3 d-grid">
+      <button type="submit" class="btn btn-warning">CSV-Datei importieren</button>
+    </div>
+  </div>
 </form>
+
+<!-- Manuelle Inventur -->
+<form method="post">
+  <div class="table-responsive">
+    <table class="table table-striped">
+      <thead><tr><th>Artikel</th><th>SKU</th><th>Aktueller Bestand</th><th>Gezählter Bestand</th></tr></thead>
+      <tbody>
+        {% for a in articles %}
+        <tr>
+          <td>{{ a.name }}</td>
+          <td>{{ a.sku }}</td>
+          <td>{{ a.stock }}</td>
+          <td><input type="number" class="form-control" name="count_{{ a.id }}" placeholder="-"></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="d-grid d-md-block">
+    <button type="submit" class="btn btn-success">Speichern</button>
+  </div>
+</form>
+
 {% endblock %}
