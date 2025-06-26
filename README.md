@@ -19,6 +19,10 @@ kann sie über die Umgebungsvariable `ENABLE_USER_MANAGEMENT=1` aktiviert werden
 Beim ersten Start mit aktivierter Benutzerverwaltung wird automatisch ein
 Admin-Benutzer `admin` mit Passwort `admin` angelegt.
 
+Angemeldete Benutzer können ihr Profil unter "Profil" bearbeiten und dort
+Benutzername sowie Passwort ändern.
+
+
 Jeder Artikel besitzt nun einen optionalen Mindestbestand. Im Dashboard wird
 ein Artikel rot markiert, sobald sein aktueller Lagerbestand unter diesen Wert
 fällt. Bei Bewegungen erscheint zudem eine Warnung, wenn der Bestand nach einer
