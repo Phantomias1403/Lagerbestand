@@ -553,3 +553,69 @@ def edit_order(order_id):
             city_zip = lines[1]
     return render_template('order_form.html', order=order, statuses=statuses, articles=None,
                            addr_street=street, addr_city_zip=city_zip)
+
+
+# Benutzerverwaltung ---------------------------------------------------------
+
+@bp.route('/users')
+@login_optional
+@admin_required
+def user_list():
+    users = User.query.all()
+    return render_template('user_list.html', users=users)
+
+
+@bp.route('/users/new', methods=['GET', 'POST'])
+@login_optional
+@admin_required
+def new_user():
+    if request.method == 'POST':
+        username = request.form.get('username', '').strip()
+        password = request.form.get('password', '').strip()
+        is_admin = bool(request.form.get('is_admin'))
+
+        if not username or not password:
+            flash('Benutzername und Passwort sind erforderlich.')
+            return redirect(url_for('main.new_user'))
+
+        if User.query.filter_by(username=username).first():
+            flash('Benutzername existiert bereits.')
+            return redirect(url_for('main.new_user'))
+
+        user = User(username=username, is_admin=is_admin)
+        user.set_password(password)
+        db.session.add(user)
+        db.session.commit()
+        flash('Benutzer angelegt')
+        return redirect(url_for('main.user_list'))
+
+    return render_template('user_form.html', user=None)
+
+
+@bp.route('/users/<int:user_id>/edit', methods=['GET', 'POST'])
+@login_optional
+@admin_required
+def edit_user(user_id):
+    user = User.query.get_or_404(user_id)
+
+    if request.method == 'POST':
+        password = request.form.get('password', '').strip()
+        user.is_admin = bool(request.form.get('is_admin'))
+        if password:
+            user.set_password(password)
+        db.session.commit()
+        flash('Benutzer aktualisiert')
+        return redirect(url_for('main.user_list'))
+
+    return render_template('user_form.html', user=user)
+
+
+@bp.route('/users/<int:user_id>/delete')
+@login_optional
+@admin_required
+def delete_user(user_id):
+    user = User.query.get_or_404(user_id)
+    db.session.delete(user)
+    db.session.commit()
+    flash('Benutzer gelöscht')
+    return redirect(url_for('main.user_list'))
