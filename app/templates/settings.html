@@ -1,0 +1,21 @@
+{% extends 'layout.html' %}
+{% block content %}
+<h1>Einstellungen</h1>
+<form method="post">
+  <div class="form-check form-switch mb-3">
+    <input class="form-check-input" type="checkbox" name="enable_user_management" value="1" id="enableUser" {% if settings.enable_user_management == '1' %}checked{% endif %}>
+    <label class="form-check-label" for="enableUser">Benutzerverwaltung aktiv</label>
+  </div>
+  <div class="mb-3"><label class="form-label">Mindestbestand Sticker</label>
+    <input class="form-control" type="number" name="min_stock_sticker" value="{{ settings.min_stock_sticker }}"></div>
+  <div class="mb-3"><label class="form-label">Mindestbestand Schal</label>
+    <input class="form-control" type="number" name="min_stock_schal" value="{{ settings.min_stock_schal }}"></div>
+  <div class="mb-3"><label class="form-label">Mindestbestand Shirt</label>
+    <input class="form-control" type="number" name="min_stock_shirt" value="{{ settings.min_stock_shirt }}"></div>
+  <div class="mb-3"><label class="form-label">Sticker CSV Multiplikator</label>
+    <input class="form-control" type="number" name="sticker_csv_multiplier" value="{{ settings.sticker_csv_multiplier }}"></div>
+  <div class="mb-3"><label class="form-label">Etikettformat (BxH mm)</label>
+    <input class="form-control" name="etikett_format" value="{{ settings.etikett_format }}" placeholder="100x50"></div>
+  <button type="submit" class="btn btn-primary">Speichern</button>
+</form>
+{% endblock %}
