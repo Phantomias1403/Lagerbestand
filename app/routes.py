@@ -14,6 +14,7 @@ from flask_login import current_user, login_required, login_user, logout_user
 
 from . import db
 from .models import User, Article, Movement, Order, OrderItem
+from .utils import get_setting, set_setting, user_management_enabled
 
 
 MINDESTBESTAND = {
@@ -23,7 +24,14 @@ MINDESTBESTAND = {
 }
 
 def get_default_minimum_stock(category: str) -> int:
-    return MINDESTBESTAND.get(category.lower(), 0)
+    mapping = {
+        'sticker': 'min_stock_sticker',
+        'schal': 'min_stock_schal',
+        'shirt': 'min_stock_shirt',
+    }
+    key = mapping.get(category.lower())
+    default = str(MINDESTBESTAND.get(category.lower(), 0))
+    return int(get_setting(key, default))
 
 
 def admin_required(func):
@@ -38,11 +46,12 @@ def admin_required(func):
     return wrapper
 
 
+
 def login_optional(func):
     from functools import wraps
     @wraps(func)
     def wrapper(*args, **kwargs):
-        if current_app.config.get('ENABLE_USER_MANAGEMENT'):
+        if user_management_enabled():
             return login_required(func)(*args, **kwargs)
         return func(*args, **kwargs)
     return wrapper
@@ -52,7 +61,7 @@ bp = Blueprint('main', __name__)
 
 @bp.app_context_processor
 def inject_config():
-    return dict(enable_user_management=current_app.config.get('ENABLE_USER_MANAGEMENT', False))
+    return dict(enable_user_management=user_management_enabled())
 
 
 @bp.route('/')
@@ -71,7 +80,7 @@ def index():
 
 @bp.route('/login', methods=['GET', 'POST'])
 def login():
-    if not current_app.config.get('ENABLE_USER_MANAGEMENT'):
+    if not user_management_enabled():
         return redirect(url_for('main.index'))
     if request.method == 'POST':
         username = request.form['username']
@@ -93,7 +102,7 @@ def logout():
 @bp.route('/profile', methods=['GET', 'POST'])
 @login_optional
 def profile():
-    if not current_app.config.get('ENABLE_USER_MANAGEMENT'):
+    if not user_management_enabled():
         return redirect(url_for('main.index'))
 
     if request.method == 'POST':
@@ -153,7 +162,7 @@ def new_article():
 @login_optional
 def edit_article(article_id):
     article = Article.query.get_or_404(article_id)
-    if current_app.config.get('ENABLE_USER_MANAGEMENT') and (not current_user.is_authenticated or not current_user.is_admin):
+    if user_management_enabled() and (not current_user.is_authenticated or not current_user.is_admin):
         flash('Keine Rechte zum Bearbeiten')
         return redirect(url_for('main.index'))
     if request.method == 'POST':
@@ -362,7 +371,8 @@ def inventory():
                         continue
 
                     if article.category and article.category.lower() == 'sticker':
-                        qty *= 100
+                        multiplier = int(get_setting('sticker_csv_multiplier', '100') or '100')
+                        qty *= multiplier
 
                     article.stock -= qty
                     db.session.add(Movement(
@@ -437,7 +447,12 @@ def order_label(order_id):
 
     from fpdf import FPDF
 
-    pdf = FPDF(unit='mm', format=(100, 50))
+    fmt = get_setting('etikett_format', '100x50')
+    try:
+        w, h = [float(x) for x in fmt.lower().split('x')]
+    except Exception:
+        w, h = 100, 50
+    pdf = FPDF(unit='mm', format=(w, h))
     pdf.set_auto_page_break(False)
     pdf.add_page()
 
@@ -553,6 +568,35 @@ def edit_order(order_id):
             city_zip = lines[1]
     return render_template('order_form.html', order=order, statuses=statuses, articles=None,
                            addr_street=street, addr_city_zip=city_zip)
+
+@bp.route('/settings', methods=['GET', 'POST'])
+@login_optional
+@admin_required
+def settings():
+    if current_app.config.get('ENABLE_USER_MANAGEMENT'):
+        if not current_user.is_authenticated or not current_user.is_admin:
+            flash('Adminrechte erforderlich')
+            return redirect(url_for('main.index'))
+
+    keys = [
+        'enable_user_management',
+        'min_stock_sticker',
+        'min_stock_schal',
+        'min_stock_shirt',
+        'etikett_format',
+        'sticker_csv_multiplier',
+    ]
+    if request.method == 'POST':
+        for key in keys:
+            val = request.form.get(key, '')
+            set_setting(key, val)
+        flash('Einstellungen gespeichert.')
+        return redirect(url_for('main.settings'))
+
+    values = {key: get_setting(key, '') for key in keys}
+    return render_template('settings.html', settings=values)
+
+
 
 
 # Benutzerverwaltung ---------------------------------------------------------
