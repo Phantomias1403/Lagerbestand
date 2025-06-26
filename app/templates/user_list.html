@@ -1,0 +1,22 @@
+{% extends 'layout.html' %}
+{% block content %}
+<h1>Benutzer</h1>
+<a class="btn btn-success mb-3" href="{{ url_for('main.new_user') }}">Neuer Benutzer</a>
+<div class="table-responsive">
+<table class="table table-striped">
+  <thead><tr><th>Benutzername</th><th>Admin</th><th></th></tr></thead>
+  <tbody>
+  {% for u in users %}
+  <tr>
+    <td>{{ u.username }}</td>
+    <td>{{ 'Ja' if u.is_admin else 'Nein' }}</td>
+    <td>
+      <a class="btn btn-sm btn-primary" href="{{ url_for('main.edit_user', user_id=u.id) }}">Bearbeiten</a>
+      <a class="btn btn-sm btn-danger" href="{{ url_for('main.delete_user', user_id=u.id) }}">Löschen</a>
+    </td>
+  </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% endblock %}
