@@ -18,7 +18,7 @@ from .models import User, Article, Movement, Order, OrderItem
 
 MINDESTBESTAND = {
     'sticker': 1000,
-    'schal': 100,
+    'schal': 20,
     'shirt':10
 }
 
@@ -185,29 +185,67 @@ def new_movement(article_id):
 def import_csv():
     if request.method == 'POST':
         file = request.files['file']
-        content = file.stream.read().decode('utf-8-sig')
-        stream = StringIO(content)
-        reader = csv.DictReader(stream)
+        raw = file.read()
+        try:
+            content = raw.decode('utf-8-sig')
+        except UnicodeDecodeError:
+            try:
+                content = raw.decode('latin1')
+            except UnicodeDecodeError:
+                flash('Datei konnte nicht gelesen werden. Bitte UTF-8 oder Latin1 codierte CSV verwenden.')
+                return redirect(url_for('main.import_csv'))
 
+        stream = StringIO(content)
+
+        # Erst versuchen wir, das Standardformat zu lesen
+        reader = csv.DictReader(stream)
         expected_fields = ['name', 'sku', 'stock', 'category', 'location_primary', 'location_secondary']
-        if reader.fieldnames != expected_fields:
-            flash(f'CSV-Spalten stimmen nicht. Erwartet: {expected_fields}, gefunden: {reader.fieldnames}')
-            return redirect(url_for('main.import_csv'))
+
+        if reader.fieldnames == expected_fields:
+            mode = 'standard'
+        else:
+            stream.seek(0)
+            reader = csv.DictReader(stream, delimiter=';')
+            if 'Produktname' in (reader.fieldnames or []):
+                mode = 'lagerverwaltung'
+            else:
+                flash('Dateiformat nicht erkannt oder Spalten fehlen')
+                return redirect(url_for('main.import_csv'))
 
         for row in reader:
-            article = Article.query.filter_by(sku=row['sku']).first()
+            if mode == 'lagerverwaltung':
+                sku = row.get('SKU')
+                name = row.get('Produktname')
+                stock = row.get('Lagerbestand (neu)')
+                minimum = row.get('Mindestbestand')
+                location_primary = row.get('Lagerplatz')
+                category = 'Sonstiges'
+                location_secondary = None
+            else:
+                sku = row['sku']
+                name = row['name']
+                stock = row['stock']
+                minimum = row.get('minimum_stock')
+                category = row['category']
+                location_primary = row.get('location_primary')
+                location_secondary = row.get('location_secondary')
+
+            article = Article.query.filter_by(sku=sku).first()
             if not article:
-                article = Article(sku=row['sku'])
+                article = Article(sku=sku)
                 db.session.add(article)
 
-            article.name = row['name']
-            article.stock = int(row['stock'])
-            article.category = row['category']
-            article.location_primary = row.get('location_primary')
-            article.location_secondary = row.get('location_secondary')
+            article.name = name
+            article.stock = int(stock) if stock not in (None, '') else 0
+            article.category = category
+            article.location_primary = location_primary
+            article.location_secondary = location_secondary
 
             try:
-                article.minimum_stock = int(row.get('minimum_stock', get_default_minimum_stock(article.category)))
+                if minimum is not None and minimum != '':
+                    article.minimum_stock = int(minimum)
+                else:
+                    article.minimum_stock = get_default_minimum_stock(article.category)
             except (ValueError, TypeError):
                 article.minimum_stock = get_default_minimum_stock(article.category)
 
@@ -216,6 +254,7 @@ def import_csv():
         return redirect(url_for('main.index'))
 
     return render_template('import.html')
+
 
 
 
