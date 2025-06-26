@@ -21,7 +21,8 @@ def create_app():
     # Template-Variablen bereitstellen
     @app.context_processor
     def inject_config():
-        return dict(enable_user_management=app.config['ENABLE_USER_MANAGEMENT'])
+        from .utils import user_management_enabled
+        return dict(enable_user_management=user_management_enabled())
 
     with app.app_context():
         from . import routes, models
