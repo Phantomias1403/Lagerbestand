@@ -570,12 +570,10 @@ def edit_order(order_id):
                            addr_street=street, addr_city_zip=city_zip)
 
 @bp.route('/settings', methods=['GET', 'POST'])
-@login_optional
-@admin_required
 def settings():
     if current_app.config.get('ENABLE_USER_MANAGEMENT'):
         if not current_user.is_authenticated or not current_user.is_admin:
-            flash('Adminrechte erforderlich')
+            flash('Zugriff verweigert – nur für Admins verfügbar.')
             return redirect(url_for('main.index'))
 
     keys = [
