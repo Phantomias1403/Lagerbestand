@@ -73,6 +73,9 @@ def index():
     category = request.args.get('category')
     if category:
         query = query.filter_by(category=category)
+    understock = request.args.get('understock')
+    if understock == '1':
+        query = query.filter(Article.stock < Article.minimum_stock)
     articles = query.all()
     categories = ['Sticker', 'Schal', 'Shirt']
     return render_template('index.html', articles=articles, categories=categories, selected_category=category)
