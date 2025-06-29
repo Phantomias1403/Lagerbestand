@@ -42,6 +42,7 @@ class Movement(db.Model):
     quantity = db.Column(db.Integer, nullable=False)
     note = db.Column(db.String(200))
     type = db.Column(db.String(20), default='Wareneingang', nullable=False)
+    invoice_number = db.Column(db.String(100))
     order_id = db.Column(db.Integer, db.ForeignKey('order.id'))
     timestamp = db.Column(db.DateTime, default=datetime.utcnow)
 class Order(db.Model):
