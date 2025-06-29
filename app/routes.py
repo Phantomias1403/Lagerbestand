@@ -318,11 +318,20 @@ def export_articles():
 def export_movements():
     si = StringIO()
     writer = csv.writer(si)
-    writer.writerow(['article_sku','article_name', 'quantity', 'type', 'note', 'timestamp'])
+    writer.writerow(['article_sku','article_name', 'quantity', 'type', 'note', 'timestamp', 'invoice_number'])
     for m in Movement.query.all():
-        writer.writerow([m.article.sku,m.article.name, m.quantity, m.type, m.note, m.timestamp])
+        writer.writerow([m.article.sku, m.article.name, m.quantity, m.type, m.note, m.timestamp, m.invoice_number or ''])
     output = si.getvalue()
     return Response(output, mimetype='text/csv', headers={'Content-Disposition': 'attachment;filename=movements.csv'})
+
+
+@bp.route('/invoices')
+@login_optional
+@admin_required
+def invoices():
+    movements = Movement.query.filter(Movement.invoice_number != None).order_by(Movement.timestamp.desc()).all()
+    return render_template('invoices.html', movements=movements)
+
 
 @bp.route('/inventory', methods=['GET', 'POST'])
 @login_optional
@@ -354,6 +363,11 @@ def inventory():
                 return redirect(url_for('main.inventory'))
 
             reader = csv.DictReader(StringIO(text), delimiter=';')
+            invoice_field = None
+            for f in ('Rechnung', 'Rechennummer'):
+                if f in reader.fieldnames:
+                    invoice_field = f
+                    break
             if 'Posten: Artikelnummer' not in reader.fieldnames or 'Posten: Anzahl' not in reader.fieldnames:
                 flash('Erforderliche Spalten fehlen.')
                 return redirect(url_for('main.inventory'))
@@ -362,6 +376,7 @@ def inventory():
                 for row in reader:
                     sku = row.get('Posten: Artikelnummer', '').strip()
                     qty = row.get('Posten: Anzahl', '').strip()
+                    invoice = row.get(invoice_field, '').strip() if invoice_field else None
                     if not sku or not qty:
                         continue
                     try:
@@ -382,6 +397,7 @@ def inventory():
                         article_id=article.id,
                         quantity=-qty,
                         type='Warenausgang',
+                        invoice_number=invoice if invoice else None,
                         note='Import Export-Datei'
                     ))
                     adjusted += 1
