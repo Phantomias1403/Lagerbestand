@@ -387,12 +387,34 @@ def backup_export():
         ])
     items_csv = si.getvalue().encode('utf-8')
 
+    
+    # Invoice movements ----------------------------------------------------
+    si = StringIO()
+    writer = csv.writer(si)
+    writer.writerow([
+        'article_sku', 'article_name', 'quantity',
+        'type', 'note', 'timestamp', 'invoice_number'
+    ])
+    for m in Movement.query.filter(Movement.invoice_number != None).all():
+        writer.writerow([
+            m.article.sku if m.article else '',
+            m.article.name if m.article else '',
+            m.quantity,
+            m.type,
+            m.note or '',
+            m.timestamp.isoformat() if m.timestamp else '',
+            m.invoice_number or ''
+        ])
+    invoices_csv = si.getvalue().encode('utf-8')
+
+
     # Build ZIP ------------------------------------------------------------
     mem = BytesIO()
     with zipfile.ZipFile(mem, 'w', zipfile.ZIP_DEFLATED) as zf:
         zf.writestr('articles.csv', articles_csv)
         zf.writestr('orders.csv', orders_csv)
         zf.writestr('order_items.csv', items_csv)
+        zf.writestr('invoice_movements.csv', invoices_csv)
     mem.seek(0)
     return Response(
         mem.read(),
@@ -438,6 +460,7 @@ def backup_import():
         articles_text = None
         orders_text = None
         items_text = None
+        invoices_text = None
 
         if zipfile.is_zipfile(BytesIO(raw)):
             with zipfile.ZipFile(BytesIO(raw)) as zf:
@@ -445,6 +468,12 @@ def backup_import():
                     articles_text = decode_bytes(zf.read('articles.csv'))
                     orders_text = decode_bytes(zf.read('orders.csv'))
                     items_text = decode_bytes(zf.read('order_items.csv'))
+                    try:
+                        invoices_text = decode_bytes(
+                            zf.read('invoice_movements.csv')
+                        )
+                    except KeyError:
+                        invoices_text = None
                 except KeyError:
                     flash('Backup-Datei unvollständig')
                     return redirect(url_for('main.backup_import'))
@@ -553,6 +582,45 @@ def backup_import():
                 item = OrderItem(order_id=oid, article_id=article.id,
                                  quantity=qty, unit_price=price)
                 db.session.add(item)
+
+
+        # Invoice movements -------------------------------------------------
+        if invoices_text:
+            r = csv.DictReader(StringIO(invoices_text))
+            fields = {
+                'article_sku', 'quantity', 'type',
+                'note', 'timestamp', 'invoice_number'
+            }
+            if not r.fieldnames or not fields.issubset(set(r.fieldnames)):
+                flash('Ungültiges Format der Invoice-Movements-Datei')
+                return redirect(url_for('main.backup_import'))
+            from datetime import datetime
+            for row in r:
+                sku = (row.get('article_sku') or '').strip()
+                if not sku:
+                    continue
+                article = Article.query.filter_by(sku=sku).first()
+                if not article:
+                    continue
+                try:
+                    qty = int(row.get('quantity') or 0)
+                except ValueError:
+                    qty = 0
+                t = row.get('timestamp') or ''
+                try:
+                    ts = datetime.fromisoformat(t) if t else datetime.utcnow()
+                except ValueError:
+                    ts = datetime.utcnow()
+                m = Movement(
+                    article_id=article.id,
+                    quantity=qty,
+                    type=row.get('type') or 'Warenausgang',
+                    note=row.get('note') or '',
+                    timestamp=ts,
+                    invoice_number=(row.get('invoice_number') or None),
+                )
+                db.session.add(m)
+
 
         db.session.commit()
         flash('Backup importiert')
