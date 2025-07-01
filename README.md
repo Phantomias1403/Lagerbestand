@@ -46,8 +46,10 @@ CSV-Dateien müssen die Spalten `name, sku, stock, category, location_primary, l
 
 ## Backup
 Über die Routen `/backup/export` und `/backup/import` lassen sich sämtliche Artikel
-inklusive Preis, Bild und Lagerorten als CSV sichern und wiederherstellen.
-Der Import legt nicht vorhandene Artikel neu an und überschreibt alle Felder vorhandener Artikel anhand ihrer SKU.
+und Bestellungen als ZIP-Archiv sichern und wiederherstellen. Das Archiv enthält
+drei CSV-Dateien: `articles.csv`, `orders.csv` sowie `order_items.csv`.
+Der Import legt nicht vorhandene Datensätze neu an und überschreibt vorhandene
+Artikel anhand ihrer SKU.
 
 ## Erweiterung
 Das System ist modular aufgebaut und lässt sich später um Funktionen wie eine Schnittstelle zu eBay/Etsy erweitern.
