@@ -47,7 +47,9 @@ CSV-Dateien müssen die Spalten `name, sku, stock, category, location_primary, l
 ## Backup
 Über die Routen `/backup/export` und `/backup/import` lassen sich sämtliche Artikel
 und Bestellungen als ZIP-Archiv sichern und wiederherstellen. Das Archiv enthält
-drei CSV-Dateien: `articles.csv`, `orders.csv` sowie `order_items.csv`.
+vier CSV-Dateien: `articles.csv`, `orders.csv`, `order_items.csv` sowie
+`invoice_movements.csv`. Die letzte Datei enthält alle Bewegungen, denen eine
+Rechnungsnummer zugeordnet wurde.
 Der Import legt nicht vorhandene Datensätze neu an und überschreibt vorhandene
 Artikel anhand ihrer SKU.
 
