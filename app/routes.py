@@ -24,13 +24,14 @@ MINDESTBESTAND = {
 }
 
 def get_default_minimum_stock(category: str) -> int:
+    category = category.strip().lower()  # Trim hinzugefügt!
     mapping = {
         'sticker': 'min_stock_sticker',
         'schal': 'min_stock_schal',
         'shirt': 'min_stock_shirt',
     }
-    key = mapping.get(category.lower())
-    default = str(MINDESTBESTAND.get(category.lower(), 0))
+    key = mapping.get(category)
+    default = str(MINDESTBESTAND.get(category, 0))
     return int(get_setting(key, default))
 
 
@@ -138,7 +139,11 @@ def new_article():
             flash('Artikel mit dieser SKU existiert bereits.')
             return redirect(url_for('main.new_article'))
 
-        category = request.form['category']
+        # Kategorie aus dem Formular holen, trimmen und Standardwert setzen
+        category = request.form.get('category', '').strip()
+        if not category:
+            category = 'Sticker'  # Standardkategorie setzen
+
         default_min = get_default_minimum_stock(category)
 
         article = Article(
@@ -158,6 +163,7 @@ def new_article():
 
     categories = ['Sticker', 'Schal', 'Shirt']
     return render_template('article_form.html', categories=categories)
+
 
 
 
@@ -261,7 +267,10 @@ def import_csv():
                 stock = row.get('Lagerbestand (neu)')
                 minimum = row.get('Mindestbestand')
                 location_primary = row.get('Lagerplatz')
-                category = 'Sonstiges'
+                if sku and sku.startswith('ST-'):
+                    category = 'Sticker'
+                else:
+                    category = 'Sonstiges'
                 location_secondary = None
             else:
                 sku = row['sku']
@@ -279,6 +288,9 @@ def import_csv():
 
             article.name = name
             article.stock = int(stock) if stock not in (None, '') else 0
+            category = (category or '').strip()
+            if not category:
+                category = 'Sticker'
             article.category = category
             article.location_primary = location_primary
             article.location_secondary = location_secondary
@@ -338,36 +350,48 @@ def invoices():
 @admin_required
 def inventory():
     query = Article.query
+
+    # Suche verarbeiten
     search = request.args.get('search')
     if search:
-        query = query.filter((Article.name.contains(search)) | (Article.sku.contains(search)))
+        query = query.filter(
+            (Article.name.contains(search)) | (Article.sku.contains(search))
+        )
+
+    # Kategorie-Filter mit Trim aus URL + DB
     category = request.args.get('category')
     if category:
-        query = query.filter_by(category=category)
-    articles = query.all()
+        query = query.filter(func.trim(Article.category) == category.strip())
+
     categories = ['Sticker', 'Schal', 'Shirt']
 
+    # CSV-Import bei POST
     if request.method == 'POST' and 'search' not in request.form:
         file = request.files.get('file')
         if file and file.filename:
             adjusted = 0
             data = file.read()
+
+            # Encoding prüfen und Text dekodieren
+            text = None
             for enc in ('utf-8-sig', 'latin1'):
                 try:
                     text = data.decode(enc)
                     break
                 except UnicodeDecodeError:
-                    text = None
+                    continue
+
             if text is None:
                 flash('Datei konnte nicht verarbeitet werden (Encoding).')
                 return redirect(url_for('main.inventory'))
 
             reader = csv.DictReader(StringIO(text), delimiter=';')
             invoice_field = None
-            for f in ('Rechnung', 'Rechennummer'):
+            for f in ('Rechnung', 'Rechennummer', 'Dokument: Dokumentnummer'):
                 if f in reader.fieldnames:
                     invoice_field = f
                     break
+
             if 'Posten: Artikelnummer' not in reader.fieldnames or 'Posten: Anzahl' not in reader.fieldnames:
                 flash('Erforderliche Spalten fehlen.')
                 return redirect(url_for('main.inventory'))
@@ -388,8 +412,10 @@ def inventory():
                     if not article:
                         continue
 
-                    if article.category and article.category.lower() == 'sticker':
+                    # Trim bei Kategorie-Vergleich
+                    if article.category and article.category.strip().lower() == 'sticker':
                         multiplier = int(get_setting('sticker_csv_multiplier', '100') or '100')
+                        current_app.logger.info(f"[IMPORT] Multiplier für Sticker: {multiplier}")
                         qty *= multiplier
 
                     article.stock -= qty
@@ -413,7 +439,16 @@ def inventory():
 
             return redirect(url_for('main.inventory'))
 
-    return render_template('inventory.html', articles=articles, categories=categories, selected_category=category)
+    # WICHTIG: articles immer definieren, wenn kein Redirect/Return vorher ausgeführt wurde
+    articles = query.all()
+
+    return render_template(
+        'inventory.html',
+        articles=articles,
+        categories=categories,
+        selected_category=category
+    )
+
 
 
 
