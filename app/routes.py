@@ -14,8 +14,15 @@ from flask_login import current_user, login_required, login_user, logout_user
 
 from . import db
 from .models import User, Article, Movement, Order, OrderItem
-from .utils import get_setting, set_setting, user_management_enabled
-
+from .utils import (
+    get_setting,
+    set_setting,
+    user_management_enabled,
+    get_categories,
+    category_from_sku,
+    get_category_prefixes,
+    save_category_prefixes,
+)
 
 MINDESTBESTAND = {
     'sticker': 1000,
@@ -78,7 +85,7 @@ def index():
     if understock == '1':
         query = query.filter(Article.stock < Article.minimum_stock)
     articles = query.all()
-    categories = ['Sticker', 'Schal', 'Shirt']
+    categories = get_categories()
     return render_template('index.html', articles=articles, categories=categories, selected_category=category)
 
 
@@ -139,10 +146,11 @@ def new_article():
             flash('Artikel mit dieser SKU existiert bereits.')
             return redirect(url_for('main.new_article'))
 
-        # Kategorie aus dem Formular holen, trimmen und Standardwert setzen
+        # Kategorie aus Formular oder anhand der SKU ableiten
         category = request.form.get('category', '').strip()
         if not category:
-            category = 'Sticker'  # Standardkategorie setzen
+            guess = category_from_sku(request.form['sku'])
+            category = guess or 'Sticker'
 
         default_min = get_default_minimum_stock(category)
 
@@ -161,7 +169,7 @@ def new_article():
         flash('Artikel erstellt')
         return redirect(url_for('main.index'))
 
-    categories = ['Sticker', 'Schal', 'Shirt']
+    categories = get_categories()
     return render_template('article_form.html', categories=categories)
 
 
@@ -186,7 +194,7 @@ def edit_article(article_id):
         db.session.commit()
         flash('Artikel aktualisiert')
         return redirect(url_for('main.index'))
-    categories = ['Sticker', 'Schal', 'Shirt']
+    categories = get_categories()
     return render_template('article_form.html', article=article, categories=categories)
 
 
@@ -267,10 +275,7 @@ def import_csv():
                 stock = row.get('Lagerbestand (neu)')
                 minimum = row.get('Mindestbestand')
                 location_primary = row.get('Lagerplatz')
-                if sku and sku.startswith('ST-'):
-                    category = 'Sticker'
-                else:
-                    category = 'Sonstiges'
+                category = category_from_sku(sku) or 'Sonstiges'
                 location_secondary = None
             else:
                 sku = row['sku']
@@ -290,7 +295,7 @@ def import_csv():
             article.stock = int(stock) if stock not in (None, '') else 0
             category = (category or '').strip()
             if not category:
-                category = 'Sticker'
+                category = category_from_sku(sku) or 'Sticker'
             article.category = category
             article.location_primary = location_primary
             article.location_secondary = location_secondary
@@ -363,7 +368,7 @@ def inventory():
     if category:
         query = query.filter(func.trim(Article.category) == category.strip())
 
-    categories = ['Sticker', 'Schal', 'Shirt']
+    categories = get_categories()
 
     # CSV-Import bei POST
     if request.method == 'POST' and 'search' not in request.form:
@@ -637,6 +642,7 @@ def settings():
         'min_stock_shirt',
         'etikett_format',
         'sticker_csv_multiplier',
+        'category_prefixes',
     ]
     if request.method == 'POST':
         for key in keys:
