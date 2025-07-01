@@ -26,7 +26,7 @@ class Article(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(120), nullable=False)
     sku = db.Column(db.String(64), unique=True, nullable=False)
-    category = db.Column(db.String(50), nullable=False)
+    category = db.Column(db.String(100), default='Sticker')
     stock = db.Column(db.Integer, default=0)
     minimum_stock = db.Column(db.Integer, default=0)
     location_primary = db.Column(db.String(80))
