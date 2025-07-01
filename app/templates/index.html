@@ -29,18 +29,14 @@
 </div>
 <div class="table-responsive">
 <table class="table table-striped">
-  <thead><tr><th>Name</th><th>SKU</th><th>Kategorie</th><th>Bild</th><th>Bestand</th><th>Mindestbestand</th><th>Lagerort</th><th>Auffüllager</th><th>Aktionen</th></tr></thead>
+  <thead><tr><th>Name</th><th>SKU</th><th>Kategorie</th><th>Preis</th><th>Bestand</th><th>Mindestbestand</th><th>Lagerort</th><th>Auffüllager</th><th>Aktionen</th></tr></thead>
   <tbody>
     {% for a in articles %}
     <tr class="{% if a.stock < a.minimum_stock %}table-danger{% endif %}">
       <td>{{ a.name }}</td>
       <td>{{ a.sku }}</td>
       <td>{{ a.category }}</td>
-      <td>
-        {% if a.image %}
-        <!--<img src="{{ a.image }}" style="max-height: 60px;">-->
-        {% endif %}
-      </td>
+      <td>{{ a.price | round(2) }} €</td>
       <td>{{ a.stock }}</td>
       <td>{{ a.minimum_stock }}</td>
       <td>{{ a.location_primary }}</td>
