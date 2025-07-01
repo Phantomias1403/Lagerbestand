@@ -17,14 +17,14 @@
     
     <div class="collapse navbar-collapse" id="navbarNav">
       <ul class="navbar-nav me-auto mb-2 mb-lg-0">
-        <li class="nav-item"><a class="nav-link" href="{{ url_for('main.index') }}">Artikel</a></li>
+        <!--li class="nav-item"><a class="nav-link" href="{{ url_for('main.index') }}">Artikel</a></li-->
         <li class="nav-item"><a class="nav-link" href="{{ url_for('main.import_csv') }}">Import</a></li>
         <li class="nav-item"><a class="nav-link" href="{{ url_for('main.export_articles') }}">Export Artikel</a></li>
-        <li class="nav-item"><a class="nav-link" href="{{ url_for('main.export_movements') }}">Export Bewegungen</a></li>
+        <!--li class="nav-item"><a class="nav-link" href="{{ url_for('main.export_movements') }}">Export Bewegungen</a></li>-->
         <li class="nav-item"><a class="nav-link" href="{{ url_for('main.inventory') }}">Inventur</a></li>
-        <li class="nav-item"><a class="nav-link" href="{{ url_for('main.order_list') }}">Bestellungen</a></li>
+        <!--li class="nav-item"><a class="nav-link" href="{{ url_for('main.order_list') }}">Bestellungen</a></li-->
         {% if not enable_user_management or (current_user.is_authenticated and current_user.is_admin) %}
-        <li class="nav-item"><a class="nav-link" href="{{ url_for('main.invoices') }}">Abgerechnete Bestellungen</a></li>
+        <li class="nav-item"><a class="nav-link" href="{{ url_for('main.invoices') }}">Bestellungen</a></li>
         {% endif %}
         {% if enable_user_management and current_user.is_authenticated and current_user.is_admin %}
         <li class="nav-item"><a class="nav-link" href="{{ url_for('main.user_list') }}">Benutzer</a></li>
