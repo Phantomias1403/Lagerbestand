@@ -334,7 +334,12 @@ def export_articles():
 @bp.route('/backup/export')
 @login_optional
 def backup_export():
-    """Export all article data as CSV for backup."""
+    
+    """Export all articles and orders as a ZIP archive."""
+    import zipfile
+    from io import BytesIO
+
+    # Articles -------------------------------------------------------------
     si = StringIO()
     writer = csv.writer(si)
     writer.writerow([
@@ -353,11 +358,46 @@ def backup_export():
             a.image or '',
             f"{a.price:.2f}" if a.price is not None else ''
         ])
-    output = si.getvalue()
+    articles_csv = si.getvalue().encode('utf-8')
+
+    # Orders ---------------------------------------------------------------
+    si = StringIO()
+    writer = csv.writer(si)
+    writer.writerow(['id', 'customer_name', 'customer_address', 'status', 'created_at'])
+    for o in Order.query.all():
+        writer.writerow([
+            o.id,
+            o.customer_name or '',
+            o.customer_address or '',
+            o.status or '',
+            o.created_at.isoformat() if o.created_at else ''
+        ])
+    orders_csv = si.getvalue().encode('utf-8')
+
+    # Order items ----------------------------------------------------------
+    si = StringIO()
+    writer = csv.writer(si)
+    writer.writerow(['order_id', 'article_sku', 'quantity', 'unit_price'])
+    for item in OrderItem.query.all():
+        writer.writerow([
+            item.order_id,
+            item.article.sku if item.article else '',
+            item.quantity,
+            f"{item.unit_price:.2f}"
+        ])
+    items_csv = si.getvalue().encode('utf-8')
+
+    # Build ZIP ------------------------------------------------------------
+    mem = BytesIO()
+    with zipfile.ZipFile(mem, 'w', zipfile.ZIP_DEFLATED) as zf:
+        zf.writestr('articles.csv', articles_csv)
+        zf.writestr('orders.csv', orders_csv)
+        zf.writestr('order_items.csv', items_csv)
+    mem.seek(0)
     return Response(
-        output,
-        mimetype='text/csv',
-        headers={'Content-Disposition': 'attachment;filename=articles_backup.csv'}
+        mem.read(),
+        mimetype='application/zip',
+        headers={'Content-Disposition': 'attachment;filename=backup.zip'}
     )
 
 
@@ -377,26 +417,45 @@ def export_movements():
 @login_optional
 @admin_required
 def backup_import():
-    """Restore articles from a backup CSV file."""
+    """Restore articles and orders from a backup ZIP or CSV file."""
     if request.method == 'POST':
         file = request.files.get('file')
         if not file or not file.filename:
             flash('Keine Datei ausgewählt')
             return redirect(url_for('main.backup_import'))
-
+        
+        import zipfile
+        from io import BytesIO
         raw = file.read()
-        text = None
-        for enc in ('utf-8-sig', 'latin1'):
-            try:
-                text = raw.decode(enc)
-                break
-            except UnicodeDecodeError:
-                continue
-        if text is None:
+        def decode_bytes(data: bytes) -> str | None:
+            for enc in ('utf-8-sig', 'latin1'):
+                try:
+                    return data.decode(enc)
+                except UnicodeDecodeError:
+                    continue
+            return None
+
+        articles_text = None
+        orders_text = None
+        items_text = None
+
+        if zipfile.is_zipfile(BytesIO(raw)):
+            with zipfile.ZipFile(BytesIO(raw)) as zf:
+                try:
+                    articles_text = decode_bytes(zf.read('articles.csv'))
+                    orders_text = decode_bytes(zf.read('orders.csv'))
+                    items_text = decode_bytes(zf.read('order_items.csv'))
+                except KeyError:
+                    flash('Backup-Datei unvollständig')
+                    return redirect(url_for('main.backup_import'))
+        else:
+            articles_text = decode_bytes(raw)
+
+        if articles_text is None:
             flash('Datei konnte nicht gelesen werden.')
             return redirect(url_for('main.backup_import'))
 
-        reader = csv.DictReader(StringIO(text))
+        reader = csv.DictReader(StringIO(articles_text))
         required = {
             'sku', 'name', 'category', 'stock', 'minimum_stock',
             'location_primary', 'location_secondary', 'image', 'price'
@@ -435,6 +494,65 @@ def backup_import():
                 article.price = float(row.get('price') or 0)
             except ValueError:
                 article.price = 0
+
+
+         # Orders -----------------------------------------------------------
+        from datetime import datetime
+        orders_mapping = {}
+        if orders_text:
+            r = csv.DictReader(StringIO(orders_text))
+            fields = {'id', 'customer_name', 'customer_address', 'status', 'created_at'}
+            if not r.fieldnames or not fields.issubset(set(r.fieldnames)):
+                flash('Ungültiges Format der Orders-Datei')
+                return redirect(url_for('main.backup_import'))
+            for row in r:
+                try:
+                    oid = int(row.get('id') or 0)
+                except ValueError:
+                    continue
+                if oid <= 0:
+                    continue
+                order = Order.query.get(oid)
+                if not order:
+                    order = Order(id=oid)
+                    db.session.add(order)
+                else:
+                    # remove existing items
+                    for it in order.items:
+                        db.session.delete(it)
+                order.customer_name = row.get('customer_name') or ''
+                order.customer_address = row.get('customer_address') or ''
+                order.status = row.get('status') or 'offen'
+                ts = row.get('created_at')
+                try:
+                    order.created_at = datetime.fromisoformat(ts) if ts else datetime.utcnow()
+                except ValueError:
+                    order.created_at = datetime.utcnow()
+                orders_mapping[oid] = order
+
+        # Order items ------------------------------------------------------
+        if items_text:
+            r = csv.DictReader(StringIO(items_text))
+            fields = {'order_id', 'article_sku', 'quantity', 'unit_price'}
+            if not r.fieldnames or not fields.issubset(set(r.fieldnames)):
+                flash('Ungültiges Format der Order-Items-Datei')
+                return redirect(url_for('main.backup_import'))
+            for row in r:
+                try:
+                    oid = int(row.get('order_id') or 0)
+                    qty = int(row.get('quantity') or 0)
+                    price = float(row.get('unit_price') or 0)
+                except ValueError:
+                    continue
+                sku = (row.get('article_sku') or '').strip()
+                if oid not in orders_mapping:
+                    continue
+                article = Article.query.filter_by(sku=sku).first()
+                if not article:
+                    continue
+                item = OrderItem(order_id=oid, article_id=article.id,
+                                 quantity=qty, unit_price=price)
+                db.session.add(item)
 
         db.session.commit()
         flash('Backup importiert')
