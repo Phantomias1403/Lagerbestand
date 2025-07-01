@@ -2,10 +2,10 @@
 {% block content %}
 <h1>Backup Import</h1>
 <form method="post" enctype="multipart/form-data">
-  <div class="mb-3"><input type="file" name="file" class="form-control" accept=".csv" required></div>
+  <div class="mb-3"><input type="file" name="file" class="form-control" accept=".csv,.zip" required></div>
   <div class="d-grid d-md-block">
     <button type="submit" class="btn btn-primary">Importieren</button>
   </div>
 </form>
-<p class="mt-3">Lade eine zuvor per Backup-Export erstellte CSV-Datei hoch, um alle Artikel wiederherzustellen.</p>
+<p class="mt-3">Lade eine zuvor per Backup-Export erstellte ZIP-Datei hoch, um Artikel und Bestellungen wiederherzustellen.</p>
 {% endblock %}
