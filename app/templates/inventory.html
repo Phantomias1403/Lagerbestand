@@ -44,6 +44,7 @@
           <td>{{ a.name }}</td>
           <td>{{ a.sku }}</td>
           <td>{{ a.stock }}</td>
+          <td>{{ article.price | round(2) }} €</td>
           <td><input type="number" class="form-control" name="count_{{ a.id }}" placeholder="-"></td>
         </tr>
         {% endfor %}
