@@ -159,6 +159,7 @@ def new_article():
             sku=request.form['sku'],
             category=category,
             stock=int(request.form['stock']),
+            price=float(request.form.get['price', 0] or 0),
             location_primary=request.form['location_primary'],
             location_secondary=request.form['location_secondary'],
             image=request.form.get('image'),
