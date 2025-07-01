@@ -331,6 +331,37 @@ def export_articles():
     return Response(output, mimetype='text/csv', headers={'Content-Disposition': 'attachment;filename=articles.csv'})
 
 
+@bp.route('/backup/export')
+@login_optional
+def backup_export():
+    """Export all article data as CSV for backup."""
+    si = StringIO()
+    writer = csv.writer(si)
+    writer.writerow([
+        'sku', 'name', 'category', 'stock', 'minimum_stock',
+        'location_primary', 'location_secondary', 'image', 'price'
+    ])
+    for a in Article.query.all():
+        writer.writerow([
+            a.sku or '',
+            a.name or '',
+            a.category or '',
+            a.stock if a.stock is not None else 0,
+            a.minimum_stock if a.minimum_stock is not None else 0,
+            a.location_primary or '',
+            a.location_secondary or '',
+            a.image or '',
+            f"{a.price:.2f}" if a.price is not None else ''
+        ])
+    output = si.getvalue()
+    return Response(
+        output,
+        mimetype='text/csv',
+        headers={'Content-Disposition': 'attachment;filename=articles_backup.csv'}
+    )
+
+
+
 @bp.route('/export/movements')
 @login_optional
 def export_movements():
@@ -341,6 +372,76 @@ def export_movements():
         writer.writerow([m.article.sku, m.article.name, m.quantity, m.type, m.note, m.timestamp, m.invoice_number or ''])
     output = si.getvalue()
     return Response(output, mimetype='text/csv', headers={'Content-Disposition': 'attachment;filename=movements.csv'})
+
+@bp.route('/backup/import', methods=['GET', 'POST'])
+@login_optional
+@admin_required
+def backup_import():
+    """Restore articles from a backup CSV file."""
+    if request.method == 'POST':
+        file = request.files.get('file')
+        if not file or not file.filename:
+            flash('Keine Datei ausgewählt')
+            return redirect(url_for('main.backup_import'))
+
+        raw = file.read()
+        text = None
+        for enc in ('utf-8-sig', 'latin1'):
+            try:
+                text = raw.decode(enc)
+                break
+            except UnicodeDecodeError:
+                continue
+        if text is None:
+            flash('Datei konnte nicht gelesen werden.')
+            return redirect(url_for('main.backup_import'))
+
+        reader = csv.DictReader(StringIO(text))
+        required = {
+            'sku', 'name', 'category', 'stock', 'minimum_stock',
+            'location_primary', 'location_secondary', 'image', 'price'
+        }
+        if not reader.fieldnames or not required.issubset(set(reader.fieldnames)):
+            flash('Ungültiges Format der Backup-Datei')
+            return redirect(url_for('main.backup_import'))
+
+        for row in reader:
+            sku = (row.get('sku') or '').strip()
+            if not sku:
+                continue
+            article = Article.query.filter_by(sku=sku).first()
+            if not article:
+                article = Article(sku=sku)
+                db.session.add(article)
+
+            article.name = row.get('name') or ''
+            article.category = (row.get('category') or 'Sticker').strip() or 'Sticker'
+
+            try:
+                article.stock = int(row.get('stock') or 0)
+            except ValueError:
+                article.stock = 0
+
+            try:
+                article.minimum_stock = int(row.get('minimum_stock') or 0)
+            except ValueError:
+                article.minimum_stock = 0
+
+            article.location_primary = row.get('location_primary') or ''
+            article.location_secondary = row.get('location_secondary') or ''
+            article.image = row.get('image') or ''
+
+            try:
+                article.price = float(row.get('price') or 0)
+            except ValueError:
+                article.price = 0
+
+        db.session.commit()
+        flash('Backup importiert')
+        return redirect(url_for('main.index'))
+
+    return render_template('backup_import.html')
+
 
 
 @bp.route('/invoices')
