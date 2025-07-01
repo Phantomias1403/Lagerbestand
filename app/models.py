@@ -32,6 +32,7 @@ class Article(db.Model):
     location_primary = db.Column(db.String(80))
     location_secondary = db.Column(db.String(80))
     image = db.Column(db.String(200))
+    price = db.Column(db.Float, default=10.49)
 
     movements = db.relationship('Movement', backref='article', lazy=True, cascade='all, delete-orphan')
 
