@@ -22,6 +22,8 @@ from .utils import (
     category_from_sku,
     get_category_prefixes,
     save_category_prefixes,
+    price_from_sku,
+    get_default_price,
 )
 
 MINDESTBESTAND = {
@@ -159,12 +161,24 @@ def new_article():
             sku=request.form['sku'],
             category=category,
             stock=int(request.form['stock']),
-            price=float(request.form.get['price', 0] or 0),
+            price=0.0,
             location_primary=request.form['location_primary'],
             location_secondary=request.form['location_secondary'],
             image=request.form.get('image'),
             minimum_stock=default_min
         )
+
+        price_raw = request.form.get('price', '').strip()
+        if price_raw:
+            try:
+                article.price = float(price_raw)
+            except ValueError:
+                article.price = 0.0
+        else:
+            p = price_from_sku(article.sku)
+            if p is None:
+                p = get_default_price(article.category)
+            article.price = p or 0.0
         db.session.add(article)
         db.session.commit()
         flash('Artikel erstellt')
@@ -191,6 +205,12 @@ def edit_article(article_id):
         article.minimum_stock = int(request.form.get('minimum_stock', 0))
         article.location_primary = request.form['location_primary']
         article.location_secondary = request.form['location_secondary']
+        price_raw = request.form.get('price', '').strip()
+        if price_raw:
+            try:
+                article.price = float(price_raw)
+            except ValueError:
+                pass
         article.image = request.form.get('image')
         db.session.commit()
         flash('Artikel aktualisiert')
@@ -300,6 +320,13 @@ def import_csv():
             article.category = category
             article.location_primary = location_primary
             article.location_secondary = location_secondary
+
+            if article.price in (None, 0):
+                p = price_from_sku(sku)
+                if p is None:
+                    p = get_default_price(article.category)
+                article.price = p or 0.0
+
 
             try:
                 if minimum is not None and minimum != '':
@@ -523,6 +550,11 @@ def backup_import():
                 article.price = float(row.get('price') or 0)
             except ValueError:
                 article.price = 0
+            if article.price in (None, 0):
+                p = price_from_sku(sku)
+                if p is None:
+                    p = get_default_price(article.category)
+                article.price = p or 0.0
 
 
          # Orders -----------------------------------------------------------
