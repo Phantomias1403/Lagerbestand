@@ -693,6 +693,29 @@ def analysis():
         results.sort(key=lambda r: r.revenue or 0, reverse=True)
     return render_template('analysis.html', data=results, sort=sort)
 
+@bp.route('/analysis/invoices')
+@login_optional
+@admin_required
+def invoice_analysis():
+    sort = request.args.get('sort', 'revenue')
+    results = (
+        db.session.query(
+            Article.name.label('name'),
+            Movement.invoice_number.label('invoice_number'),
+            func.sum(func.abs(Movement.quantity)).label('quantity'),
+            func.sum(func.abs(Movement.quantity) * Article.price).label('revenue'),
+        )
+        .join(Article, Movement.article_id == Article.id)
+        .filter(Movement.invoice_number != None)
+        .group_by(Movement.invoice_number, Article.id)
+        .all()
+    )
+    if sort == 'quantity':
+        results.sort(key=lambda r: r.quantity or 0, reverse=True)
+    else:
+        results.sort(key=lambda r: r.revenue or 0, reverse=True)
+    return render_template('invoice_analysis.html', data=results, sort=sort)
+
 
 
 @bp.route('/inventory', methods=['GET', 'POST'])
