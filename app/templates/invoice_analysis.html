@@ -1,0 +1,26 @@
+{% extends 'layout.html' %}
+{% block content %}
+<h1>Rechnungsanalyse</h1>
+<div class="mb-3">
+  <a href="{{ url_for('main.invoice_analysis', sort='revenue') }}" class="btn btn-primary{% if sort=='revenue' %} active{% endif %}">Nach Umsatz</a>
+  <a href="{{ url_for('main.invoice_analysis', sort='quantity') }}" class="btn btn-primary{% if sort=='quantity' %} active{% endif %}">Nach Menge</a>
+</div>
+<div class="table-responsive">
+<table class="table table-striped">
+  <thead>
+    <tr><th>Rang</th><th>Artikel</th><th>Rechnung</th><th>Menge</th><th>Umsatz (€)</th></tr>
+  </thead>
+  <tbody>
+  {% for item in data %}
+  <tr>
+    <td>{{ loop.index }}</td>
+    <td>{{ item.name }}</td>
+    <td>{{ item.invoice_number }}</td>
+    <td>{{ item.quantity }}</td>
+    <td>{{ '%.2f'|format(item.revenue) }}</td>
+  </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% endblock %}
