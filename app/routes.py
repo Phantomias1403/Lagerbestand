@@ -697,24 +697,41 @@ def analysis():
 @login_optional
 @admin_required
 def invoice_analysis():
-    sort = request.args.get('sort', 'revenue')
-    results = (
+    """Show statistics for all invoiced movements grouped by article SKU."""
+    sort = request.args.get('sort', 'sku')
+
+    query_results = (
         db.session.query(
+            Article.id.label('id'),
             Article.name.label('name'),
-            Movement.invoice_number.label('invoice_number'),
+            Article.sku.label('sku'),
+            Article.category.label('category'),
+            Article.price.label('price'),
             func.sum(func.abs(Movement.quantity)).label('quantity'),
-            func.sum(func.abs(Movement.quantity) * Article.price).label('revenue'),
         )
         .join(Article, Movement.article_id == Article.id)
         .filter(Movement.invoice_number != None)
-        .group_by(Movement.invoice_number, Article.id)
+        .group_by(Article.id)
         .all()
     )
+
+    data = []
+    for r in query_results:
+        price_per_unit = r.price
+        if r.category and r.category.strip().lower() == 'sticker':
+            price_per_unit = r.price / 100.0
+        revenue = (r.quantity or 0) * price_per_unit
+        data.append(
+            dict(name=r.name, sku=r.sku, quantity=r.quantity, revenue=revenue)
+        )
     if sort == 'quantity':
-        results.sort(key=lambda r: r.quantity or 0, reverse=True)
-    else:
-        results.sort(key=lambda r: r.revenue or 0, reverse=True)
-    return render_template('invoice_analysis.html', data=results, sort=sort)
+        data.sort(key=lambda x: x['quantity'] or 0, reverse=True)
+    elif sort == 'revenue':
+        data.sort(key=lambda x: x['revenue'] or 0, reverse=True)
+    else:  # 'sku'
+        data.sort(key=lambda x: x['sku'] or '')
+
+    return render_template('invoice_analysis.html', data=data, sort=sort)
 
 
 
