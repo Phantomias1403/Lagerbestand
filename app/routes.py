@@ -11,6 +11,7 @@ from flask import (
     url_for,
 )
 from flask_login import current_user, login_required, login_user, logout_user
+from sqlalchemy import func
 
 from . import db
 from .models import User, Article, Movement, Order, OrderItem
@@ -668,6 +669,30 @@ def backup_import():
 def invoices():
     movements = Movement.query.filter(Movement.invoice_number != None).order_by(Movement.timestamp.desc()).all()
     return render_template('invoices.html', movements=movements)
+
+@bp.route('/analysis')
+@login_optional
+@admin_required
+def analysis():
+    sort = request.args.get('sort', 'revenue')
+    results = (
+        db.session.query(
+            Article.name.label('name'),
+            func.sum(OrderItem.quantity).label('quantity'),
+            func.sum(OrderItem.quantity * OrderItem.unit_price).label('revenue'),
+        )
+        .join(OrderItem, Article.id == OrderItem.article_id)
+        .join(Order, Order.id == OrderItem.order_id)
+        .filter(Order.status.in_(['bezahlt', 'versendet']))
+        .group_by(Article.id)
+        .all()
+    )
+    if sort == 'quantity':
+        results.sort(key=lambda r: r.quantity or 0, reverse=True)
+    else:
+        results.sort(key=lambda r: r.revenue or 0, reverse=True)
+    return render_template('analysis.html', data=results, sort=sort)
+
 
 
 @bp.route('/inventory', methods=['GET', 'POST'])
