@@ -2,16 +2,7 @@
 {% block content %}
 <h1>Bestellungen</h1>
 <form class="row g-2 mb-3">
-  <div class="col-12 col-md-3">
-    <input class="form-control" type="text" name="customer" placeholder="Kunde" value="{{ request.args.get('customer','') }}">
-  </div>
-  <div class="col-12 col-md-2">
-    <input class="form-control" type="date" name="start" value="{{ request.args.get('start','') }}">
-  </div>
-  <div class="col-12 col-md-2">
-    <input class="form-control" type="date" name="end" value="{{ request.args.get('end','') }}">
-  </div>
-  <div class="col-12 col-md-3">
+  <div class="col-12 col-md-4">
     <select name="status" class="form-select">
       <option value="">Alle</option>
       {% for st in statuses %}
@@ -24,20 +15,21 @@
   </div>
 </form>
 <div class="d-grid d-md-block mb-3">
-  <a href="{{ url_for('main.new_order') }}" class="btn btn-success">Neue Bestellung</a>
+  <a href="{{ url_for('orders.new') }}" class="btn btn-success">Neue Bestellung</a>
 </div>
 <div class="table-responsive">
 <table class="table table-striped">
-  <thead><tr><th>ID</th><th>Kunde</th><th>Status</th><th>Datum</th><th>Summe</th><th></th></tr></thead>
+  <thead><tr><th>ID</th><th>Kunde</th><th>Adresse</th><th>Status</th><th>Datum</th><th>Summe</th><th></th></tr></thead>
   <tbody>
   {% for o in orders %}
   <tr>
     <td>{{ o.id }}</td>
     <td>{{ o.customer_name }}</td>
+    <td>{{ o.customer_address|replace('\n',' ') }}</td>
     <td>{{ o.status }}</td>
     <td>{{ o.created_at.date() }}</td>
     <td>{{ '%.2f'|format(o.total_price) }}</td>
-    <td><a class="btn btn-sm btn-primary" href="{{ url_for('main.order_detail', order_id=o.id) }}">Details</a></td>
+    <td><a class="btn btn-sm btn-primary" href="{{ url_for('orders.detail', order_id=o.id) }}">Details</a></td>
   </tr>
   {% endfor %}
   </tbody>
