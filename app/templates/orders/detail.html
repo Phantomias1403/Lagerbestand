@@ -25,9 +25,9 @@
 </table>
 </div>
 <div class="d-grid d-md-block gap-2">
-  <a href="{{ url_for('main.edit_order', order_id=order.id) }}" class="btn btn-primary">Bearbeiten</a>
+  <a href="{{ url_for('orders.edit', order_id=order.id) }}" class="btn btn-primary">Bearbeiten</a>
   {% if order.status in ['bezahlt', 'versendet'] %}
-  <a href="{{ url_for('main.order_label', order_id=order.id) }}" class="btn btn-secondary">Versandetikett erzeugen</a>
+  <a href="{{ url_for('orders.label', order_id=order.id) }}" class="btn btn-secondary">Versandetikett erzeugen</a>
   {% endif %}
 </div>
 {% endblock %}

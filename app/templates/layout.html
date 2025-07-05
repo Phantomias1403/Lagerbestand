@@ -24,7 +24,8 @@
         <li class="nav-item"><a class="nav-link" href="{{ url_for('main.inventory') }}">Inventur</a></li>
         <!--li class="nav-item"><a class="nav-link" href="{{ url_for('main.order_list') }}">Bestellungen</a></li-->
         {% if not enable_user_management or (current_user.is_authenticated and current_user.is_admin) %}
-        <li class="nav-item"><a class="nav-link" href="{{ url_for('main.invoices') }}">Bestellungen</a></li>
+        <li class="nav-item"><a class="nav-link" href="{{ url_for('orders.dashboard') }}">Bestellungen</a></li>
+        <li class="nav-item"><a class="nav-link" href="{{ url_for('main.invoices') }}">Rechnungen</a></li>
         <!--li class="nav-item"><a class="nav-link" href="{{ url_for('main.analysis') }}">Analyse</a></li-->
                 <li class="nav-item"><a class="nav-link" href="{{ url_for('main.invoice_analysis') }}">Analyse</a></li>
         {% endif %}
