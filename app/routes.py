@@ -722,7 +722,7 @@ def invoice_analysis():
             price_per_unit = r.price / 100.0
         revenue = (r.quantity or 0) * price_per_unit
         data.append(
-            dict(name=r.name, sku=r.sku, quantity=r.quantity, revenue=revenue)
+            dict(sku=r.sku, quantity=r.quantity, revenue=revenue)
         )
     if sort == 'quantity':
         data.sort(key=lambda x: x['quantity'] or 0, reverse=True)
