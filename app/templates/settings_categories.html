@@ -20,6 +20,9 @@
       <td>{{ cat.default_min_stock }}</td>
       <td>
         <a class="btn btn-sm btn-primary" href="{{ url_for('main.edit_category', category_id=cat.id) }}">Bearbeiten</a>
+        <form action="{{ url_for('main.apply_category_defaults', category_id=cat.id) }}" method="post" class="d-inline">
+          <button type="submit" class="btn btn-sm btn-secondary">Auf Artikel anwenden</button>
+        </form>
         <form action="{{ url_for('main.delete_category', category_id=cat.id) }}" method="post" class="d-inline" onsubmit="return confirm('Kategorie löschen?');">
           <button type="submit" class="btn btn-sm btn-danger">Löschen</button>
         </form>
