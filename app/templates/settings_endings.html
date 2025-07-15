@@ -18,6 +18,9 @@
       <td>{{ e.csv_multiplier }}</td>
       <td>
         <a class="btn btn-sm btn-primary" href="{{ url_for('main.edit_ending', ending_id=e.id) }}">Bearbeiten</a>
+        <form action="{{ url_for('main.apply_ending_price', ending_id=e.id) }}" method="post" class="d-inline">
+          <button type="submit" class="btn btn-sm btn-secondary">Auf Artikel anwenden</button>
+        </form>
         <form action="{{ url_for('main.delete_ending', ending_id=e.id) }}" method="post" class="d-inline" onsubmit="return confirm('Endung l\u00f6schen?');">
           <button type="submit" class="btn btn-sm btn-danger">L\u00f6schen</button>
         </form>
@@ -31,7 +34,7 @@
     <div class="col-md-4"><input class="form-control" name="suffix" placeholder="Endung" required></div>
     <div class="col-md-3"><input class="form-control" name="price" placeholder="Preis" type="number" step="0.01"></div>
     <div class="col-md-3"><input class="form-control" name="multiplier" placeholder="Multiplikator" type="number"></div>
-    <div class="col-md-2"><button class="btn btn-success" type="submit">Hinzuf\u00fcgen</button></div>
+    <div class="col-md-2"><button class="btn btn-success" type="submit">Hinzufügen</button></div>
   </div>
 </form>
 {% endblock %}
