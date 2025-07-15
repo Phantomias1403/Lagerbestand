@@ -14,7 +14,7 @@ from flask_login import current_user, login_required, login_user, logout_user
 from sqlalchemy import func
 
 from . import db
-from .models import User, Article, Movement, Order, OrderItem, Category
+from .models import User, Article, Movement, Order, OrderItem, Category, EndingCategory
 from .utils import (
     get_setting,
     set_setting,
@@ -23,6 +23,8 @@ from .utils import (
     category_from_sku,
     get_category_prefixes,
     price_from_sku,
+    price_from_suffix,
+    csv_multiplier_from_suffix,
     get_default_price,
     get_default_minimum_stock,
 )
@@ -167,7 +169,9 @@ def new_article():
                 return redirect(url_for('main.new_article'))
         else:
             # Nur wenn das Feld leer ist, Standardpreis berechnen
-            p = price_from_sku(article.sku)
+            p = price_from_suffix(article.sku)
+            if p is None:
+                p = price_from_sku(article.sku)
             if p is None:
                 p = get_default_price(article.category)
             article.price = p or 0.0
@@ -289,7 +293,7 @@ def import_csv():
                 minimum = row.get('Mindestbestand')
                 location_primary = row.get('Lagerplatz')
                 category = category_from_sku(sku) or 'Sonstiges'
-                location_secondary = None
+                location_secondary = ''
             else:
                 sku = row['sku']
                 name = row['name']
@@ -321,7 +325,9 @@ def import_csv():
                     article.price = article.price  # Beibehalten, falls fehlerhaft
             elif not article.price or article.price == 0:
                 # Nur wenn Preis nicht gesetzt, versuche Default
-                p = price_from_sku(sku)
+                p = price_from_suffix(sku)
+                if p is None:
+                    p = price_from_sku(sku)
                 if p is None:
                     p = get_default_price(article.category)
                 article.price = p or 0.0
@@ -552,7 +558,9 @@ def backup_import():
                 except ValueError:
                     article.price = article.price  # Behalte alten Preis
             elif not article.price or article.price == 0:
-                p = price_from_sku(sku)
+                p = price_from_suffix(sku)
+                if p is None:
+                    p = price_from_sku(sku)
                 if p is None:
                     p = get_default_price(article.category)
                 article.price = p or 0.0
@@ -802,10 +810,11 @@ def inventory():
                     if not article:
                         continue
 
-                    # Trim bei Kategorie-Vergleich
-                    if article.category and article.category.strip().lower() == 'sticker':
+                    multiplier = csv_multiplier_from_suffix(article.sku)
+                    if multiplier is None and article.category and article.category.strip().lower() == 'sticker':
                         multiplier = int(get_setting('sticker_csv_multiplier', '100') or '100')
-                        current_app.logger.info(f"[IMPORT] Multiplier für Sticker: {multiplier}")
+                    if multiplier and multiplier != 1:
+                        current_app.logger.info(f"[IMPORT] Multiplier f\u00fcr Sticker/Endung: {multiplier}")
                         qty *= multiplier
 
                     article.stock -= qty
@@ -1141,7 +1150,70 @@ def delete_category(category_id):
         flash('Kategorie gelöscht')
     return redirect(url_for('main.settings_categories'))
 
+@bp.route('/settings/endings')
+@login_optional
+@admin_required
+def settings_endings():
+    endings = EndingCategory.query.order_by(EndingCategory.suffix).all()
+    return render_template('settings_endings.html', endings=endings)
 
+
+@bp.route('/settings/endings/add', methods=['POST'])
+@login_optional
+@admin_required
+def add_ending():
+    suffix = request.form.get('suffix', '').strip()
+    if suffix and not EndingCategory.query.filter_by(suffix=suffix).first():
+        price_raw = request.form.get('price', '').replace(',', '.').strip()
+        multiplier_raw = request.form.get('multiplier', '').strip()
+        try:
+            price = float(price_raw) if price_raw else 0.0
+        except ValueError:
+            price = 0.0
+        try:
+            multiplier = int(multiplier_raw) if multiplier_raw else 1
+        except ValueError:
+            multiplier = 1
+        db.session.add(EndingCategory(suffix=suffix, price=price, csv_multiplier=multiplier))
+        db.session.commit()
+        flash('Endung hinzugefügt')
+    return redirect(url_for('main.settings_endings'))
+
+
+@bp.route('/settings/endings/<int:ending_id>/edit', methods=['GET', 'POST'])
+@login_optional
+@admin_required
+def edit_ending(ending_id):
+    ending = EndingCategory.query.get_or_404(ending_id)
+    if request.method == 'POST':
+        suffix = request.form.get('suffix', '').strip()
+        price_raw = request.form.get('price', '').replace(',', '.').strip()
+        multiplier_raw = request.form.get('multiplier', '').strip()
+        if suffix:
+            ending.suffix = suffix
+        try:
+            ending.price = float(price_raw) if price_raw else 0.0
+        except ValueError:
+            pass
+        try:
+            ending.csv_multiplier = int(multiplier_raw) if multiplier_raw else 1
+        except ValueError:
+            pass
+        db.session.commit()
+        flash('Endung aktualisiert')
+        return redirect(url_for('main.settings_endings'))
+    return render_template('ending_form.html', ending=ending)
+
+
+@bp.route('/settings/endings/<int:ending_id>/delete', methods=['POST'])
+@login_optional
+@admin_required
+def delete_ending(ending_id):
+    ending = EndingCategory.query.get_or_404(ending_id)
+    db.session.delete(ending)
+    db.session.commit()
+    flash('Endung gelöscht')
+    return redirect(url_for('main.settings_endings'))
 
 
 # Benutzerverwaltung ---------------------------------------------------------
