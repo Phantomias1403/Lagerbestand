@@ -36,4 +36,12 @@ def create_app():
             db.session.add(admin)
             db.session.commit()
 
+       # Initial categories from prefix settings
+        if models.Category.query.count() == 0:
+            from .utils import get_category_prefixes
+            for name in sorted(set(get_category_prefixes().values())):
+                db.session.add(models.Category(name=name))
+            db.session.commit()
+
+
     return app
