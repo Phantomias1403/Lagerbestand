@@ -1,67 +1,64 @@
 {% extends 'layout.html' %}
 {% block content %}
-<h1>Artikel</h1>
-<form class="row g-2 mb-4">
-  <div class="col-12 col-md-4">
-    <input type="text" name="search" class="form-control" placeholder="Suche" value="{{ request.args.get('search','') }}">
-  </div>
-  <div class="col-12 col-md-4">
-    <select name="category" class="form-select">
-      <option value="">Alle Kategorien</option>
-      {% for cat in categories %}
-      <option value="{{ cat }}" {% if selected_category == cat %}selected{% endif %}>{{ cat }}</option>
-      {% endfor %}
-    </select>
-  </div>
-  <div class="col-12 col-md-4">
-    <div class="form-check mt-2">
-      <input class="form-check-input" type="checkbox" name="understock" value="1" {% if request.args.get('understock') == '1' %}checked{% endif %}>
-      <label class="form-check-label">Nur unter Mindestbestand</label>
+<h1>Inventur</h1>
+
+<form method="get" class="mb-3">
+  <div class="row g-2 mb-3">
+    <div class="col-12 col-md-4">
+      <input type="text" name="search" class="form-control" placeholder="Suche" value="{{ request.args.get('search','') }}">
     </div>
     <div class="col-12 col-md-4">
-      <div class="form-check mt-2">
-        <input class="form-check-input" type="checkbox" name="no_secondary" value="1" {% if request.args.get('no_secondary') == '1' %}checked{% endif %}>
-        <label class="form-check-label">Nur ohne Platz im Auffüllager</label>
-      </div>
+      <select name="category" class="form-select">
+        <option value="">Alle Kategorien</option>
+        {% for cat in categories %}
+        <option value="{{ cat }}" {% if selected_category == cat %}selected{% endif %}>{{ cat }}</option>
+        {% endfor %}
+      </select>
     </div>
-  </div>
-  <div class="col-12 d-grid d-md-block">
-    <button type="submit" class="btn btn-primary">Filter</button>
+    <div class="col-12 col-md-4 d-grid">
+      <button type="submit" class="btn btn-primary">Filter</button>
+    </div>
   </div>
 </form>
 
-<div class="d-grid d-md-block mb-3">
-  <a class="btn btn-success" href="{{ url_for('main.new_article') }}">Neuer Artikel</a>
-</div>
-<div class="table-responsive">
-<table class="table table-striped">
-  <thead><tr><th>Name</th><th>SKU</th><th>Kategorie</th><th>Preis</th><th>Bestand</th><th>Mindestbestand</th><th>Lagerort</th><th>Auffüllager</th><th>Aktionen</th></tr></thead>
-  <tbody>
-    {% for a in articles %}
-  <tr 
-    class="
-      {% if a.stock < a.minimum_stock %}table-danger{% endif %}
-      {% if not a.location_secondary %} table-warning {% endif %}
-    "
-  >
-      <td>{{ a.name }}</td>
-      <td>{{ a.sku }}</td>
-      <td>{{ a.category }}</td>
-      <td>{{ a.price | round(2) }} €</td>
-      <td>{{ a.stock }}</td>
-      <td>{{ a.minimum_stock }}</td>
-      <td>{{ a.location_primary }}</td>
-      <td>{{ a.location_secondary }}</td>
-      <td>
-        <a class="btn btn-sm btn-primary" href="{{ url_for('main.edit_article', article_id=a.id) }}">Bearbeiten</a>
-        <a class="btn btn-sm btn-secondary" href="{{ url_for('main.article_history', article_id=a.id) }}">Historie</a>
-        {% if not enable_user_management or (current_user.is_authenticated and current_user.is_admin) %}
-        <a class="btn btn-sm btn-danger" href="{{ url_for('main.delete_article', article_id=a.id) }}">Löschen</a>
-        {% endif %}
-      </td>
-    </tr>
-    {% endfor %}
-  </tbody>
-</table>
-</div>
+<!-- CSV-Import Formular -->
+<form method="post" enctype="multipart/form-data" class="mb-4">
+  <div class="row g-2">
+    <div class="col-12 col-md-6">
+      <input type="file" name="file" class="form-control" accept=".csv">
+    </div>
+    <div class="col-12 col-md-3 d-grid">
+      <button type="submit" class="btn btn-warning">CSV-Datei importieren</button>
+    </div>
+  </div>
+</form>
+
+<!-- Manuelle Inventur -->
+<form method="post">
+  <div class="table-responsive">
+    <table class="table table-striped">
+      <thead><tr><th>Artikel</th><th>SKU</th><th>Aktueller Bestand</th><th>Gezählter Bestand</th></tr></thead>
+      <tbody>
+        {% for a in articles %}
+        <tr 
+        class="
+        {% if a.stock < a.minimum_stock %}table-danger{% endif %}
+        {% if not a.location_secondary %}table-warning{% endif %}
+        "
+        >
+          <td>{{ a.name }}</td>
+          <td>{{ a.sku }}</td>
+          <td>{{ a.stock }}</td>
+          <td>{{ a.price | round(2) }} €</td>
+          <td><input type="number" class="form-control" name="count_{{ a.id }}" placeholder="-"></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="d-grid d-md-block">
+    <button type="submit" class="btn btn-success">Speichern</button>
+  </div>
+</form>
+
 {% endblock %}
