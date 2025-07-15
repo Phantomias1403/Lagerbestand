@@ -40,7 +40,12 @@
       <thead><tr><th>Artikel</th><th>SKU</th><th>Aktueller Bestand</th><th>Gezählter Bestand</th></tr></thead>
       <tbody>
         {% for a in articles %}
-        <tr>
+        <tr 
+        class="
+        {% if a.stock < a.minimum_stock %}table-danger{% endif %}
+        {% if not a.location_secondary %}table-warning{% endif %}
+        "
+        >
           <td>{{ a.name }}</td>
           <td>{{ a.sku }}</td>
           <td>{{ a.stock }}</td>
