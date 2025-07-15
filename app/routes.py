@@ -22,7 +22,6 @@ from .utils import (
     get_categories,
     category_from_sku,
     get_category_prefixes,
-    save_category_prefixes,
     price_from_sku,
     get_default_price,
     get_default_minimum_stock,
@@ -1032,7 +1031,6 @@ def settings_general():
         'enable_user_management',
         'etikett_format',
         'sticker_csv_multiplier',
-        'category_prefixes',
     ]
     if request.method == 'POST':
         for key in keys:
@@ -1060,7 +1058,23 @@ def add_category():
     name = request.form.get('name', '').strip()
     if name:
         if not Category.query.filter(func.lower(Category.name) == name.lower()).first():
-            db.session.add(Category(name=name))
+            prefix = request.form.get('prefix', '').strip() or None
+            price_raw = request.form.get('price', '').replace(',', '.').strip()
+            try:
+                price = float(price_raw) if price_raw else 0.0
+            except ValueError:
+                price = 0.0
+            minimum = request.form.get('minimum', '').strip()
+            try:
+                minimum = int(minimum) if minimum else 0
+            except ValueError:
+                minimum = 0
+            db.session.add(Category(
+                name=name,
+                prefix=prefix,
+                default_price=price,
+                default_min_stock=minimum,
+            ))
             db.session.commit()
             flash('Kategorie hinzugefügt')
     return redirect(url_for('main.settings_categories'))
@@ -1073,14 +1087,26 @@ def edit_category(category_id):
     category = Category.query.get_or_404(category_id)
     if request.method == 'POST':
         name = request.form.get('name', '').strip()
+        prefix = request.form.get('prefix', '').strip() or None
+        price_raw = request.form.get('price', '').replace(',', '.').strip()
+        minimum = request.form.get('minimum', '').strip()
         if name:
             old_name = category.name
             category.name = name
             # Update articles using old category name
             Article.query.filter_by(category=old_name).update({'category': name})
-            db.session.commit()
-            flash('Kategorie aktualisiert')
-            return redirect(url_for('main.settings_categories'))
+        category.prefix = prefix
+        try:
+            category.default_price = float(price_raw) if price_raw else 0.0
+        except ValueError:
+            pass
+        try:
+            category.default_min_stock = int(minimum) if minimum else 0
+        except ValueError:
+            pass
+        db.session.commit()
+        flash('Kategorie aktualisiert')
+        return redirect(url_for('main.settings_categories'))
     return render_template('category_form.html', category=category)
 
 
