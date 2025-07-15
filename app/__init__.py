@@ -36,11 +36,16 @@ def create_app():
             db.session.add(admin)
             db.session.commit()
 
-       # Initial categories from prefix settings
+        # Initial categories from prefix settings
         if models.Category.query.count() == 0:
-            from .utils import get_category_prefixes
-            for name in sorted(set(get_category_prefixes().values())):
-                db.session.add(models.Category(name=name))
+            from .utils import _get_prefix_definitions
+            for prefix, (name, price, min_stock) in _get_prefix_definitions().items():
+                db.session.add(models.Category(
+                    name=name,
+                    prefix=prefix,
+                    default_price=price,
+                    default_min_stock=min_stock,
+                ))
             db.session.commit()
 
 
