@@ -1109,6 +1109,22 @@ def edit_category(category_id):
         return redirect(url_for('main.settings_categories'))
     return render_template('category_form.html', category=category)
 
+@bp.route('/settings/categories/<int:category_id>/apply', methods=['POST'])
+@login_optional
+@admin_required
+def apply_category_defaults(category_id):
+    """Apply default price and minimum stock of a category to all its articles."""
+    category = Category.query.get_or_404(category_id)
+    Article.query.filter_by(category=category.name).update({
+        'price': category.default_price,
+        'minimum_stock': category.default_min_stock,
+    })
+    db.session.commit()
+    flash('Standardwerte auf Artikel angewendet')
+    return redirect(url_for('main.settings_categories'))
+
+
+
 
 @bp.route('/settings/categories/<int:category_id>/delete', methods=['POST'])
 @login_optional
