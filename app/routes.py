@@ -324,7 +324,14 @@ def import_csv():
             article.location_primary = location_primary
             article.location_secondary = location_secondary
 
-            if article.price in (None, 0):
+            price_raw = row.get('price', '').strip()
+            if price_raw:
+                try:
+                    article.price = float(price_raw.replace(',', '.'))
+                except ValueError:
+                    article.price = article.price  # Beibehalten, falls fehlerhaft
+            elif not article.price or article.price == 0:
+                # Nur wenn Preis nicht gesetzt, versuche Default
                 p = price_from_sku(sku)
                 if p is None:
                     p = get_default_price(article.category)
@@ -549,11 +556,13 @@ def backup_import():
             article.location_secondary = row.get('location_secondary') or ''
             article.image = row.get('image') or ''
 
-            try:
-                article.price = float(row.get('price') or 0)
-            except ValueError:
-                article.price = 0
-            if article.price in (None, 0):
+            price_raw = row.get('price', '').strip()
+            if price_raw:
+                try:
+                    article.price = float(price_raw.replace(',', '.'))
+                except ValueError:
+                    article.price = article.price  # Behalte alten Preis
+            elif not article.price or article.price == 0:
                 p = price_from_sku(sku)
                 if p is None:
                     p = get_default_price(article.category)
