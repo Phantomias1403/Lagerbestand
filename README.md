@@ -41,6 +41,11 @@ erstellt werden (ab Status "bezahlt"). Das Etikett hat nun das Format 100 x 50 m
 und enthält den standardmäßigen Absender
 "Fan-Kultur Xperience GmbH, Hauptstr. 20, 55288 Armsheim".
 
+In den Einstellungen lassen sich die vorhandenen Kategorien verwalten. Für jede
+Kategorie kann dort ein zugehöriger SKU-Prefix, ein Standardpreis und ein
+Mindestbestand definiert werden. Diese Angaben werden beim Anlegen neuer Artikel
+oder beim CSV‑Import automatisch übernommen.
+
 ## CSV-Import
 CSV-Dateien müssen die Spalten `name, sku, stock, category, location_primary, location_secondary` besitzen.
 
