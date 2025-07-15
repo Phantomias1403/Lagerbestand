@@ -14,7 +14,7 @@ from flask_login import current_user, login_required, login_user, logout_user
 from sqlalchemy import func
 
 from . import db
-from .models import User, Article, Movement, Order, OrderItem
+from .models import User, Article, Movement, Order, OrderItem, Category
 from .utils import (
     get_setting,
     set_setting,
@@ -1014,12 +1014,19 @@ def edit_order(order_id):
     return render_template('order_form.html', order=order, statuses=statuses, articles=None,
                            addr_street=street, addr_city_zip=city_zip)
 
-@bp.route('/settings', methods=['GET', 'POST'])
-def settings():
-    if current_app.config.get('ENABLE_USER_MANAGEMENT'):
-        if not current_user.is_authenticated or not current_user.is_admin:
-            flash('Zugriff verweigert – nur für Admins verfügbar.')
-            return redirect(url_for('main.index'))
+@bp.route('/settings')
+@login_optional
+@admin_required
+def settings_index():
+    """Redirect to the first settings tab."""
+    return redirect(url_for('main.settings_categories'))
+
+
+
+@bp.route('/settings/general', methods=['GET', 'POST'])
+@login_optional
+@admin_required
+def settings_general():
 
     keys = [
         'enable_user_management',
@@ -1032,10 +1039,65 @@ def settings():
             val = request.form.get(key, '')
             set_setting(key, val)
         flash('Einstellungen gespeichert.')
-        return redirect(url_for('main.settings'))
+        return redirect(url_for('main.settings_general'))
 
     values = {key: get_setting(key, '') for key in keys}
-    return render_template('settings.html', settings=values)
+    return render_template('settings_general.html', settings=values)
+
+
+@bp.route('/settings/categories')
+@login_optional
+@admin_required
+def settings_categories():
+    categories = Category.query.order_by(Category.name).all()
+    return render_template('settings_categories.html', categories=categories)
+
+
+@bp.route('/settings/categories/add', methods=['POST'])
+@login_optional
+@admin_required
+def add_category():
+    name = request.form.get('name', '').strip()
+    if name:
+        if not Category.query.filter(func.lower(Category.name) == name.lower()).first():
+            db.session.add(Category(name=name))
+            db.session.commit()
+            flash('Kategorie hinzugefügt')
+    return redirect(url_for('main.settings_categories'))
+
+
+@bp.route('/settings/categories/<int:category_id>/edit', methods=['GET', 'POST'])
+@login_optional
+@admin_required
+def edit_category(category_id):
+    category = Category.query.get_or_404(category_id)
+    if request.method == 'POST':
+        name = request.form.get('name', '').strip()
+        if name:
+            old_name = category.name
+            category.name = name
+            # Update articles using old category name
+            Article.query.filter_by(category=old_name).update({'category': name})
+            db.session.commit()
+            flash('Kategorie aktualisiert')
+            return redirect(url_for('main.settings_categories'))
+    return render_template('category_form.html', category=category)
+
+
+@bp.route('/settings/categories/<int:category_id>/delete', methods=['POST'])
+@login_optional
+@admin_required
+def delete_category(category_id):
+    category = Category.query.get_or_404(category_id)
+    # Only allow deletion if no article uses this category
+    in_use = Article.query.filter_by(category=category.name).first()
+    if in_use:
+        flash('Kategorie wird von Artikeln verwendet und kann nicht gelöscht werden.')
+    else:
+        db.session.delete(category)
+        db.session.commit()
+        flash('Kategorie gelöscht')
+    return redirect(url_for('main.settings_categories'))
 
 
 
