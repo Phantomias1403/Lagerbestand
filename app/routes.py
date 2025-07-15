@@ -172,10 +172,12 @@ def new_article():
         price_raw = request.form.get('price', '').strip()
         if price_raw:
             try:
-                article.price = float(price_raw)
+                article.price = float(price_raw.replace(',', '.'))  # Dezimal-Komma erlauben
             except ValueError:
-                article.price = 0.0
+                flash('Ungültiger Preis. Bitte Zahl mit Punkt oder Komma eingeben.')
+                return redirect(url_for('main.new_article'))
         else:
+            # Nur wenn das Feld leer ist, Standardpreis berechnen
             p = price_from_sku(article.sku)
             if p is None:
                 p = get_default_price(article.category)
@@ -722,7 +724,7 @@ def invoice_analysis():
             price_per_unit = r.price / 100.0
         revenue = (r.quantity or 0) * price_per_unit
         data.append(
-            dict(sku=r.sku, quantity=r.quantity, revenue=revenue)
+            dict(name=r.name, sku=r.sku, quantity=r.quantity, revenue=revenue)
         )
     if sort == 'quantity':
         data.sort(key=lambda x: x['quantity'] or 0, reverse=True)
