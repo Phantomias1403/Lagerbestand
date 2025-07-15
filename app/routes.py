@@ -25,24 +25,8 @@ from .utils import (
     save_category_prefixes,
     price_from_sku,
     get_default_price,
+    get_default_minimum_stock,
 )
-
-MINDESTBESTAND = {
-    'sticker': 1000,
-    'schal': 20,
-    'shirt':10
-}
-
-def get_default_minimum_stock(category: str) -> int:
-    category = category.strip().lower()  # Trim hinzugefügt!
-    mapping = {
-        'sticker': 'min_stock_sticker',
-        'schal': 'min_stock_schal',
-        'shirt': 'min_stock_shirt',
-    }
-    key = mapping.get(category)
-    default = str(MINDESTBESTAND.get(category, 0))
-    return int(get_setting(key, default))
 
 
 def admin_required(func):
@@ -1039,9 +1023,6 @@ def settings():
 
     keys = [
         'enable_user_management',
-        'min_stock_sticker',
-        'min_stock_schal',
-        'min_stock_shirt',
         'etikett_format',
         'sticker_csv_multiplier',
         'category_prefixes',
