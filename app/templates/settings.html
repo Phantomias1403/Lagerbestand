@@ -6,16 +6,10 @@
     <input class="form-check-input" type="checkbox" name="enable_user_management" value="1" id="enableUser" {% if settings.enable_user_management == '1' %}checked{% endif %}>
     <label class="form-check-label" for="enableUser">Benutzerverwaltung aktiv</label>
   </div>
-  <div class="mb-3"><label class="form-label">Mindestbestand Sticker</label>
-    <input class="form-control" type="number" name="min_stock_sticker" value="{{ settings.min_stock_sticker }}"></div>
-  <div class="mb-3"><label class="form-label">Mindestbestand Schal</label>
-    <input class="form-control" type="number" name="min_stock_schal" value="{{ settings.min_stock_schal }}"></div>
-  <div class="mb-3"><label class="form-label">Mindestbestand Shirt</label>
-    <input class="form-control" type="number" name="min_stock_shirt" value="{{ settings.min_stock_shirt }}"></div>
   <div class="mb-3"><label class="form-label">Sticker CSV Multiplikator</label>
     <input class="form-control" type="number" name="sticker_csv_multiplier" value="{{ settings.sticker_csv_multiplier }}" placeholder="100"></div>
   <div class="mb-3">
-    <label class="form-label">Kategorien &amp; Prefixe<br><small>eine Zeile pro Eintrag im Format PREFIX:Kategorie:Preis</small></label>
+    <label class="form-label">Kategorien &amp; Prefixe<br><small>eine Zeile pro Eintrag im Format PREFIX:Kategorie:Preis:Mindestbestand</small></label>
     <textarea class="form-control" name="category_prefixes" rows="4">{{ settings.category_prefixes }}</textarea>
   </div>
   <div class="mb-3"><label class="form-label">Etikettformat (BxH mm)</label>
