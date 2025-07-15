@@ -1204,6 +1204,21 @@ def edit_ending(ending_id):
         return redirect(url_for('main.settings_endings'))
     return render_template('ending_form.html', ending=ending)
 
+@bp.route('/settings/endings/<int:ending_id>/apply', methods=['POST'])
+@login_optional
+@admin_required
+def apply_ending_price(ending_id):
+    """Apply the price of an ending category to all matching articles."""
+    ending = EndingCategory.query.get_or_404(ending_id)
+    if ending.suffix:
+        Article.query.filter(Article.sku.like(f"%{ending.suffix}")).update({
+            'price': ending.price,
+        })
+        db.session.commit()
+        flash('Preis auf Artikel angewendet')
+    return redirect(url_for('main.settings_endings'))
+
+
 
 @bp.route('/settings/endings/<int:ending_id>/delete', methods=['POST'])
 @login_optional
