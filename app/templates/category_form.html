@@ -1,0 +1,13 @@
+{% extends 'settings_base.html' %}
+{% set active_tab='categories' %}
+{% block settings_content %}
+<h2>Kategorie bearbeiten</h2>
+<form method="post">
+  <div class="mb-3">
+    <label class="form-label">Name</label>
+    <input class="form-control" name="name" value="{{ category.name }}" required>
+  </div>
+  <button type="submit" class="btn btn-primary">Speichern</button>
+  <a class="btn btn-secondary" href="{{ url_for('main.settings_categories') }}">Zurück</a>
+</form>
+{% endblock %}

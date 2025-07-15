@@ -1,0 +1,13 @@
+{% extends 'layout.html' %}
+{% block content %}
+<h1>Einstellungen</h1>
+<ul class="nav nav-tabs mb-3">
+  <li class="nav-item">
+    <a class="nav-link {% if active_tab=='categories' %}active{% endif %}" href="{{ url_for('main.settings_categories') }}">Kategorien</a>
+  </li>
+  <li class="nav-item">
+    <a class="nav-link {% if active_tab=='general' %}active{% endif %}" href="{{ url_for('main.settings_general') }}">Allgemein</a>
+  </li>
+</ul>
+{% block settings_content %}{% endblock %}
+{% endblock %}
