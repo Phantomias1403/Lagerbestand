@@ -28,15 +28,27 @@ DEFAULT_MIN_STOCK = {
     'shirt': 10,
 }
 
+DEFAULT_PREFIX_STRING = 'ST-:Sticker:0:1000\nSC-:Schal:0:20\nSH-:Shirt:0:10'
 
 
 def _get_prefix_definitions() -> dict:
-    """Return mapping of SKU prefixes to ``(category, price)`` tuples."""
-    raw = get_setting(
-        'category_prefixes',
-        'ST-:Sticker:0:1000\nSC-:Schal:0:20\nSH-:Shirt:0:10'
-    )
+    """Return mapping of SKU prefixes to ``(category, price, min_stock)`` tuples."""
     mapping = {}
+    
+    # Prefer definitions stored in the Category table
+    for cat in Category.query.all():
+        if cat.prefix:
+            mapping[cat.prefix] = (
+                cat.name,
+                cat.default_price or 0.0,
+                cat.default_min_stock or DEFAULT_MIN_STOCK.get(cat.name.lower(), 0),
+            )
+
+    if mapping:
+        return mapping
+
+    # Fallback to stored setting (for compatibility / first start)
+    raw = get_setting('category_prefixes', DEFAULT_PREFIX_STRING)
     for line in raw.splitlines():
         if ':' not in line:
             continue
@@ -57,19 +69,24 @@ def _get_prefix_definitions() -> dict:
             except ValueError:
                 min_stock = DEFAULT_MIN_STOCK.get(category.lower(), 0)
         if prefix and category:
-            mapping[prefix] = (category, price)
             mapping[prefix] = (category, price, min_stock)
     return mapping
 
 def get_category_prefixes() -> dict:
-    """Return mapping of SKU prefixes to ``(category, price, min_stock)`` tuples."""
+    """Return mapping of SKU prefixes to category names."""
     return {p: c for p, (c, _, _) in _get_prefix_definitions().items()}
 
 
 
 def save_category_prefixes(mapping: dict) -> None:
-    lines = [f"{p}:{c}" for p, c in mapping.items()]
-    set_setting('category_prefixes', '\n'.join(lines))
+    """Update Category table from a prefix->category mapping."""
+    for prefix, name in mapping.items():
+        cat = Category.query.filter_by(name=name).first()
+        if not cat:
+            cat = Category(name=name)
+            db.session.add(cat)
+        cat.prefix = prefix
+    db.session.commit()
 
 
 def get_categories() -> list:
@@ -86,7 +103,7 @@ def category_from_sku(sku: str) -> str | None:
 
 def price_from_sku(sku: str) -> float | None:
     """Return default price configured for the prefix of *sku*."""
-    for _, (cat, price, _) in _get_prefix_definitions().items():
+    for prefix, (_, price, _) in _get_prefix_definitions().items():
         if sku.startswith(prefix):
             return price
     return None
@@ -94,7 +111,7 @@ def price_from_sku(sku: str) -> float | None:
 
 def get_default_price(category: str) -> float:
     """Return default price for *category* or ``0.0`` if not defined."""
-    for _, (cat, price) in _get_prefix_definitions().items():
+    for _, (cat, price, _) in _get_prefix_definitions().items():
         if cat == category:
             return price
     return 0.0
