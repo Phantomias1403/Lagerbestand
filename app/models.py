@@ -83,3 +83,11 @@ class Category(db.Model):
     prefix = db.Column(db.String(20), unique=True)
     default_price = db.Column(db.Float, default=0.0)
     default_min_stock = db.Column(db.Integer, default=0)
+
+
+class EndingCategory(db.Model):
+    """Suffix-based category used for price/multiplier overrides."""
+    id = db.Column(db.Integer, primary_key=True)
+    suffix = db.Column(db.String(20), unique=True, nullable=False)
+    price = db.Column(db.Float, default=0.0)
+    csv_multiplier = db.Column(db.Integer, default=1)
