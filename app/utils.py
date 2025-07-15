@@ -1,6 +1,6 @@
 from flask import current_app
 from . import db
-from .models import Setting, Category
+from .models import Setting, Category, EndingCategory
 
 
 def get_setting(key: str, default: str = '') -> str:
@@ -122,3 +122,18 @@ def get_default_minimum_stock(category: str) -> int:
         if cat == category:
             return min_stock
     return DEFAULT_MIN_STOCK.get(category.lower(), 0)
+
+def price_from_suffix(sku: str) -> float | None:
+    """Return price configured for a specific SKU suffix."""
+    for end in EndingCategory.query.all():
+        if sku.endswith(end.suffix):
+            return end.price
+    return None
+
+
+def csv_multiplier_from_suffix(sku: str) -> int | None:
+    """Return CSV multiplier for a specific SKU suffix."""
+    for end in EndingCategory.query.all():
+        if sku.endswith(end.suffix):
+            return end.csv_multiplier or 1
+    return None
