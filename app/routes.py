@@ -87,6 +87,12 @@ def index():
     understock = request.args.get('understock')
     if understock == '1':
         query = query.filter(Article.stock < Article.minimum_stock)
+    no_secondary = request.args.get('no_secondary')
+    if no_secondary == '1':
+        query = query.filter(
+            (Article.location_secondary == None) |
+            (Article.location_secondary == '')
+        )
     articles = query.all()
     categories = get_categories()
     return render_template('index.html', articles=articles, categories=categories, selected_category=category)
