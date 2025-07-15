@@ -80,3 +80,6 @@ class Category(db.Model):
     """Simple category table used for article grouping."""
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), unique=True, nullable=False)
+    prefix = db.Column(db.String(20), unique=True)
+    default_price = db.Column(db.Float, default=0.0)
+    default_min_stock = db.Column(db.Integer, default=0)
