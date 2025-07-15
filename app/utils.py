@@ -1,6 +1,6 @@
 from flask import current_app
 from . import db
-from .models import Setting
+from .models import Setting, Category
 
 
 def get_setting(key: str, default: str = '') -> str:
@@ -73,8 +73,8 @@ def save_category_prefixes(mapping: dict) -> None:
 
 
 def get_categories() -> list:
-    """Return list of all category names."""
-    return sorted(set(get_category_prefixes().values()))
+    """Return list of all category names from the database."""
+    return [c.name for c in Category.query.order_by(Category.name).all()]
 
 
 def category_from_sku(sku: str) -> str | None:
