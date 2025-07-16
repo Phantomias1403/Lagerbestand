@@ -11,6 +11,9 @@
   <li class="nav-item">
     <a class="nav-link {% if active_tab=='general' %}active{% endif %}" href="{{ url_for('main.settings_general') }}">Allgemein</a>
   </li>
+  <li class="nav-item">
+    <a class="nav-link {% if active_tab=='users' %}active{% endif %}" href="{{ url_for('main.settings_users') }}">Benutzer</a>
+  </li>
 </ul>
 {% block settings_content %}{% endblock %}
 {% endblock %}
