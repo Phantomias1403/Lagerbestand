@@ -3,14 +3,13 @@
 <h1>Abgerechnete Bestellungen</h1>
 <div class="table-responsive">
 <table class="table table-striped">
-  <thead><tr><th>Rechennummer</th><th>SKU</th><th>Menge</th><th>Artikel</th><th>Importdatum</th></tr></thead>
+  <thead><tr><th>Rechennummer</th><th>SKU</th><th>Menge</th><th>Bestelldatum</th></tr></thead>
   <tbody>
   {% for m in movements %}
   <tr>
     <td>{{ m.invoice_number }}</td>
     <td>{{ m.article.sku }}</td>
     <td>{{ m.quantity|abs }}</td>
-    <td>{{ m.article.name }}</td>
     <td>{{ m.timestamp.strftime('%Y-%m-%d') }}</td>
   </tr>
   {% endfor %}
