@@ -41,6 +41,17 @@ def admin_required(func):
         return func(*args, **kwargs)
     return wrapper
 
+def staff_required(func):
+    from functools import wraps
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        if current_app.config.get('ENABLE_USER_MANAGEMENT'):
+            if not current_user.is_authenticated or not current_user.has_staff_rights():
+                flash('Mitarbeiterrechte erforderlich')
+                return redirect(url_for('main.index'))
+        return func(*args, **kwargs)
+    return wrapper
+
 
 
 def login_optional(func):
@@ -129,11 +140,16 @@ def profile():
 
     return render_template('profile.html')
 
+@bp.route('/dick')
+@login_optional
+def frauen_tab():
+    """Simple page shown only to the user named 'Frauen'."""
+    return render_template('dick.html')
 
 
 @bp.route('/article/new', methods=['GET', 'POST'])
 @login_optional
-@admin_required
+@staff_required
 def new_article():
     if request.method == 'POST':
         if Article.query.filter_by(sku=request.form['sku']).first():
@@ -190,7 +206,7 @@ def new_article():
 @login_optional
 def edit_article(article_id):
     article = Article.query.get_or_404(article_id)
-    if user_management_enabled() and (not current_user.is_authenticated or not current_user.is_admin):
+    if user_management_enabled() and (not current_user.is_authenticated or not current_user.has_staff_rights()):
         flash('Keine Rechte zum Bearbeiten')
         return redirect(url_for('main.index'))
     if request.method == 'POST':
@@ -235,6 +251,7 @@ def article_history(article_id):
 
 @bp.route('/movement/<int:article_id>/new', methods=['GET', 'POST'])
 @login_optional
+@staff_required
 def new_movement(article_id):
     article = Article.query.get_or_404(article_id)
     if request.method == 'POST':
@@ -254,7 +271,7 @@ def new_movement(article_id):
 
 @bp.route('/import', methods=['GET', 'POST'])
 @login_optional
-@admin_required
+@staff_required
 def import_csv():
     if request.method == 'POST':
         file = request.files['file']
@@ -745,7 +762,7 @@ def invoice_analysis():
 
 @bp.route('/inventory', methods=['GET', 'POST'])
 @login_optional
-@admin_required
+@staff_required
 def inventory():
     query = Article.query
 
@@ -960,7 +977,7 @@ def order_label(order_id):
 
 @bp.route('/orders/new', methods=['GET', 'POST'])
 @login_optional
-@admin_required
+@staff_required
 def new_order():
     statuses = ['offen', 'bezahlt', 'versendet']
     articles = Article.query.all()
@@ -998,7 +1015,7 @@ def new_order():
 
 @bp.route('/orders/<int:order_id>/edit', methods=['GET', 'POST'])
 @login_optional
-@admin_required
+@staff_required
 def edit_order(order_id):
     statuses = ['offen', 'bezahlt', 'versendet']
     order = Order.query.get_or_404(order_id)
@@ -1233,15 +1250,15 @@ def delete_ending(ending_id):
 
 # Benutzerverwaltung ---------------------------------------------------------
 
-@bp.route('/users')
+@bp.route('/settings/users')
 @login_optional
 @admin_required
-def user_list():
+def settings_users():
     users = User.query.all()
-    return render_template('user_list.html', users=users)
+    return render_template('settings_users.html', users=users)
 
 
-@bp.route('/users/new', methods=['GET', 'POST'])
+@bp.route('/settings/users/new', methods=['GET', 'POST'])
 @login_optional
 @admin_required
 def new_user():
@@ -1249,6 +1266,7 @@ def new_user():
         username = request.form.get('username', '').strip()
         password = request.form.get('password', '').strip()
         is_admin = bool(request.form.get('is_admin'))
+        is_staff = bool(request.form.get('is_staff'))
 
         if not username or not password:
             flash('Benutzername und Passwort sind erforderlich.')
@@ -1258,17 +1276,17 @@ def new_user():
             flash('Benutzername existiert bereits.')
             return redirect(url_for('main.new_user'))
 
-        user = User(username=username, is_admin=is_admin)
+        user = User(username=username, is_admin=is_admin, is_staff=is_staff or is_admin)
         user.set_password(password)
         db.session.add(user)
         db.session.commit()
         flash('Benutzer angelegt')
-        return redirect(url_for('main.user_list'))
+        return redirect(url_for('main.settings_users'))
 
     return render_template('user_form.html', user=None)
 
 
-@bp.route('/users/<int:user_id>/edit', methods=['GET', 'POST'])
+@bp.route('/settings/users/<int:user_id>/edit', methods=['GET', 'POST'])
 @login_optional
 @admin_required
 def edit_user(user_id):
@@ -1277,16 +1295,17 @@ def edit_user(user_id):
     if request.method == 'POST':
         password = request.form.get('password', '').strip()
         user.is_admin = bool(request.form.get('is_admin'))
+        user.is_staff = bool(request.form.get('is_staff')) or user.is_admin
         if password:
             user.set_password(password)
         db.session.commit()
         flash('Benutzer aktualisiert')
-        return redirect(url_for('main.user_list'))
+        return redirect(url_for('main.settings_users'))
 
     return render_template('user_form.html', user=user)
 
 
-@bp.route('/users/<int:user_id>/delete')
+@bp.route('/settings/users/<int:user_id>/delete')
 @login_optional
 @admin_required
 def delete_user(user_id):
@@ -1294,4 +1313,4 @@ def delete_user(user_id):
     db.session.delete(user)
     db.session.commit()
     flash('Benutzer gelöscht')
-    return redirect(url_for('main.user_list'))
+    return redirect(url_for('main.settings_users'))
