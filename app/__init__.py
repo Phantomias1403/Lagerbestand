@@ -25,8 +25,9 @@ def create_app():
         return dict(enable_user_management=user_management_enabled())
 
     with app.app_context():
-        from . import routes, models
+        from . import routes, orders, models
         app.register_blueprint(routes.bp)
+        app.register_blueprint(orders.bp)
         db.create_all()
 
         # Nur Admin-Nutzer anlegen, wenn Benutzerverwaltung aktiv ist
