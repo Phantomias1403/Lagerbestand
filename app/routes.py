@@ -28,6 +28,8 @@ from .utils import (
     get_default_price,
     get_default_minimum_stock,
 )
+from datetime import datetime
+
 
 
 def admin_required(func):
@@ -812,6 +814,14 @@ def inventory():
                     invoice_field = f
                     break
 
+            date_field = None
+            for f in reader.fieldnames:
+                lf = f.lower()
+                if 'datum' in lf or 'date' in lf:
+                    date_field = f
+                    if 'bestell' in lf or 'dokument' in lf or lf == 'datum' or lf == 'date':
+                        break
+
             if 'Posten: Artikelnummer' not in reader.fieldnames or 'Posten: Anzahl' not in reader.fieldnames:
                 flash('Erforderliche Spalten fehlen.')
                 return redirect(url_for('main.inventory'))
@@ -821,6 +831,20 @@ def inventory():
                     sku = row.get('Posten: Artikelnummer', '').strip()
                     qty = row.get('Posten: Anzahl', '').strip()
                     invoice = row.get(invoice_field, '').strip() if invoice_field else None
+                    date_str = row.get(date_field, '').strip() if date_field else ''
+                    ts = None
+                    if date_str:
+                        for fmt in ('%d.%m.%Y %H:%M:%S', '%d.%m.%Y', '%Y-%m-%d %H:%M:%S', '%Y-%m-%d'):
+                            try:
+                                ts = datetime.strptime(date_str, fmt)
+                                break
+                            except ValueError:
+                                continue
+                        if ts is None:
+                            try:
+                                ts = datetime.fromisoformat(date_str)
+                            except ValueError:
+                                ts = None
                     if not sku or not qty:
                         continue
                     try:
@@ -845,7 +869,8 @@ def inventory():
                         quantity=-qty,
                         type='Warenausgang',
                         invoice_number=invoice if invoice else None,
-                        note='Import Export-Datei'
+                        note='Import Export-Datei',
+                        timestamp=ts if ts else datetime.utcnow()
                     ))
                     adjusted += 1
             except Exception as e:
