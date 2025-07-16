@@ -9,7 +9,7 @@
 }
 
 [data-bs-theme="dark"] .table-warning {
-  --bs-table-bg: #4c3f00;       /* dunkles Gelb-Braun für Hintergrund */
-  --bs-table-striped-bg: #4c3f00;
+  --bs-table-bg: #ec80f0;       /* dunkles Gelb-Braun für Hintergrund */
+  --bs-table-striped-bg: #ec80f0;
   color: #fff;                  /* Textfarbe weiß */
 }
