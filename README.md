@@ -60,3 +60,6 @@ Artikel anhand ihrer SKU.
 
 ## Erweiterung
 Das System ist modular aufgebaut und lässt sich später um Funktionen wie eine Schnittstelle zu eBay/Etsy erweitern.
+
+## Dark Mode
+Die Farben der Bootstrap‑Komponenten werden im Dark Mode leicht angepasst, um besser lesbar zu sein. Eigene Farbanpassungen befinden sich in `app/static/theme.css`.
