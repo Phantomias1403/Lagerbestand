@@ -31,7 +31,7 @@ def create_app():
 
         # Nur Admin-Nutzer anlegen, wenn Benutzerverwaltung aktiv ist
         if app.config['ENABLE_USER_MANAGEMENT'] and models.User.query.count() == 0:
-            admin = models.User(username='admin', is_admin=True)
+            admin = models.User(username='admin', is_admin=True, is_staff=True)
             admin.set_password('admin')
             db.session.add(admin)
             db.session.commit()
