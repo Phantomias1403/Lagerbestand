@@ -9,7 +9,13 @@
 }
 
 [data-bs-theme="dark"] .table-warning {
-  --bs-table-bg: #a292ff;
-  --bs-table-striped-bg: #a292ff;
+  --bs-table-bg: #ffffff;     
+  --bs-table-striped-bg: #ffffff;
+  color: #fff;
+}
+
+[data-bs-theme="dark"] .table-danger {
+  --bs-table-bg: #ff8787;     
+  --bs-table-striped-bg: #ff8787;
   color: #fff;
 }
