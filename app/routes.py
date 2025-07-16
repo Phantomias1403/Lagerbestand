@@ -140,6 +140,11 @@ def profile():
 
     return render_template('profile.html')
 
+@bp.route('/nils')
+@login_optional
+def nils():
+    return render_template('nils.html')
+
 @bp.route('/dick')
 @login_optional
 def frauen_tab():
