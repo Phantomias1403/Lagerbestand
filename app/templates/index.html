@@ -30,9 +30,11 @@
   </div>
 </form>
 
+{% if not enable_user_management or (current_user.is_authenticated and (current_user.is_admin or current_user.is_staff)) %}
 <div class="d-grid d-md-block mb-3">
   <a class="btn btn-success" href="{{ url_for('main.new_article') }}">Neuer Artikel</a>
 </div>
+{% endif %}
 <div class="table-responsive">
 <table class="table table-striped">
   <thead><tr><th>SKU</th><th>Kategorie</th><th>Preis</th><th>Bestand</th><th>Mindestbestand</th><th>Lagerort</th><th>Auffüllager</th><th>Aktionen</th></tr></thead>
