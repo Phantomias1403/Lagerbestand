@@ -1,0 +1,15 @@
+[data-bs-theme="dark"] {
+  --bs-primary: #4dabf7; /* lighten blue for dark mode */
+  --bs-success: #63e6be;
+  --bs-info: #74c0fc;
+  --bs-warning: #ffc078;
+  --bs-danger: #ff8787;
+  --bs-light: #495057;
+  --bs-dark: #ced4da;
+}
+
+[data-bs-theme="dark"] .table-warning {
+  --bs-table-bg: #4c3f00;       /* dunkles Gelb-Braun für Hintergrund */
+  --bs-table-striped-bg: #4c3f00;
+  color: #fff;                  /* Textfarbe weiß */
+}
