@@ -22,6 +22,7 @@
         <li class="nav-item"><a class="nav-link" href="{{ url_for('main.export_articles') }}">Export Artikel</a></li>
         <!--li class="nav-item"><a class="nav-link" href="{{ url_for('main.export_movements') }}">Export Bewegungen</a></li>-->
         <li class="nav-item"><a class="nav-link" href="{{ url_for('main.inventory') }}">Inventur</a></li>
+
         <!--li class="nav-item"><a class="nav-link" href="{{ url_for('main.order_list') }}">Bestellungen</a></li-->
         {% if not enable_user_management or (current_user.is_authenticated and current_user.is_admin) %}
         <li class="nav-item"><a class="nav-link" href="{{ url_for('main.invoices') }}">Bestellungen</a></li>
@@ -45,6 +46,9 @@
           <li class="nav-item"><a class="nav-link" href="{{ url_for('main.profile') }}">Profil</a></li>
           {% if current_user.username == 'Frauen' %}
           <li class="nav-item"><a class="nav-link" href="{{ url_for('main.frauen_tab') }}">dick</a></li>
+          {% endif %}
+          {% if current_user.username == 'Nils' %}
+          <li class="nav-item"><a class="nav-link" href="{{ url_for('main.nils') }}">Opfer</a></li>
           {% endif %}
           <li class="nav-item"><a class="nav-link" href="{{ url_for('main.logout') }}">Logout</a></li>
         {% else %}
