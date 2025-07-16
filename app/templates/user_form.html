@@ -21,6 +21,10 @@
     <input class="form-check-input" type="checkbox" id="is_admin" name="is_admin" value="1" {% if user and user.is_admin %}checked{% endif %}>
     <label class="form-check-label" for="is_admin">Admin</label>
   </div>
+  <div class="form-check mb-3">
+    <input class="form-check-input" type="checkbox" id="is_staff" name="is_staff" value="1" {% if user and user.is_staff %}checked{% endif %}>
+    <label class="form-check-label" for="is_staff">Staff</label>
+  </div>
   <button type="submit" class="btn btn-primary">Speichern</button>
 </form>
 {% endblock %}
