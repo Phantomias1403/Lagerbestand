@@ -1,5 +1,7 @@
 {% extends 'layout.html' %}
 {% block content %}
-<img src="{{ url_for('static', filename='images/Du_Hund.png') }}?v=1" alt="Logo" class="img-fluid">
-<img src="{{ url_for('static', filename='images/Nils.png') }}?v=1" alt="Logo" class="img-fluid">
+<div class="d-flex justify-content-center align-items-center gap-3">
+    <img src="{{ url_for('static', filename='images/Du_Hund.png') }}?v=1" alt="Bild 1" style="height: 700px; object-fit: contain;">
+    <img src="{{ url_for('static', filename='images/Nils.png') }}?v=1" alt="Bild 2" style="height: 700px; object-fit: contain;">
+</div>
 {% endblock %}
