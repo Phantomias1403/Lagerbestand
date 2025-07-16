@@ -37,7 +37,7 @@
 {% endif %}
 <div class="table-responsive">
 <table class="table table-striped">
-  <thead><tr><th>SKU</th><th>Kategorie</th><th>Preis</th><th>Bestand</th><th>Mindestbestand</th><th>Lagerort</th><th>Auffüllager</th><th>Aktionen</th></tr></thead>
+  <thead><tr><th>SKU</th><th>Lagerort</th><th>Bestand</th><th>Mindestbestand</th><th>Kategorie</th><th>Auffüllager</th><th>Preis</th><th>Aktionen</th></tr></thead>
   <tbody>
     {% for a in articles %}
   <tr 
@@ -47,12 +47,12 @@
     "
   >
       <td>{{ a.sku }}</td>
-      <td>{{ a.category }}</td>
-      <td>{{ a.price | round(2) }} €</td>
+      <td>{{ a.location_primary }}</td>
       <td>{{ a.stock }}</td>
       <td>{{ a.minimum_stock }}</td>
-      <td>{{ a.location_primary }}</td>
+      <td>{{ a.category}}</td>
       <td>{{ a.location_secondary }}</td>
+     <td>{{ a.price | round(2) }} €</td>
       <td>
         <a class="btn btn-sm btn-primary" href="{{ url_for('main.edit_article', article_id=a.id) }}">Bearbeiten</a>
         <a class="btn btn-sm btn-secondary" href="{{ url_for('main.article_history', article_id=a.id) }}">Historie</a>
