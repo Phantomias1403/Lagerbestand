@@ -2,7 +2,14 @@
 {% block content %}
 <h1>Login</h1>
 <form method="post">
-  <div class="mb-3"><label class="form-label">Benutzername</label><input class="form-control" name="username"></div>
+   <div class="mb-3">
+    <label class="form-label">Benutzername</label>
+    {% if preselect_user %}
+    <input class="form-control" name="username" value="{{ preselect_user.username }}" readonly>
+    {% else %}
+    <input class="form-control" name="username">
+    {% endif %}
+  </div>
   <div class="mb-3"><label class="form-label">Passwort</label><input type="password" class="form-control" name="password"></div>
   <div class="d-grid d-md-block">
     <button type="submit" class="btn btn-primary">Einloggen</button>
