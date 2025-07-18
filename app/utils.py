@@ -1,6 +1,9 @@
 from flask import current_app
 from . import db
 from .models import Setting, Category, EndingCategory
+from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
+from email.message import EmailMessage
+import smtplib
 
 
 def get_setting(key: str, default: str = '') -> str:
@@ -20,7 +23,7 @@ def set_setting(key: str, value: str) -> None:
 
 def user_management_enabled() -> bool:
     default = '1' if current_app.config.get('ENABLE_USER_MANAGEMENT') else '0'
-    return get_setting('enable_user_management', default) == '1'
+    return 1
 
 DEFAULT_MIN_STOCK = {
     'sticker': 1000,
@@ -141,3 +144,38 @@ def csv_multiplier_from_suffix(sku: str, category: str | None = None) -> int | N
         if sku.endswith(end.suffix) and (category is None or end.category == category):
             return end.csv_multiplier or 1
     return None
+
+def generate_reset_token(user_id: int) -> str:
+    """Return a signed token for password reset."""
+    s = URLSafeTimedSerializer(current_app.config['SECRET_KEY'])
+    return s.dumps(user_id, salt='password-reset')
+
+
+def verify_reset_token(token: str, max_age: int = 3600) -> int | None:
+    """Return user id if token is valid, else ``None``."""
+    s = URLSafeTimedSerializer(current_app.config['SECRET_KEY'])
+    try:
+        return s.loads(token, salt='password-reset', max_age=max_age)
+    except (BadSignature, SignatureExpired):
+        return None
+
+
+def send_email(to: str, subject: str, body: str) -> None:
+    """Send a plain text email using SMTP settings from the Flask config."""
+    server = current_app.config.get('MAIL_SERVER', 'localhost')
+    port = int(current_app.config.get('MAIL_PORT', 25))
+    username = current_app.config.get('MAIL_USERNAME')
+    password = current_app.config.get('MAIL_PASSWORD')
+    sender = current_app.config.get('MAIL_SENDER', username)
+
+    msg = EmailMessage()
+    msg['Subject'] = subject
+    msg['From'] = sender or ''
+    msg['To'] = to
+    msg.set_content(body)
+
+    with smtplib.SMTP(server, port) as smtp:
+        if username and password:
+            smtp.starttls()
+            smtp.login(username, password)
+        smtp.send_message(msg)
