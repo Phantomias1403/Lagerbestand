@@ -100,3 +100,13 @@ class EndingCategory(db.Model):
     suffix = db.Column(db.String(20), unique=True, nullable=False)
     price = db.Column(db.Float, default=0.0)
     csv_multiplier = db.Column(db.Integer, default=1)
+
+class Message(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    sender_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    receiver_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    content = db.Column(db.String(500), nullable=False)
+    timestamp = db.Column(db.DateTime, default=datetime.utcnow)
+
+    sender = db.relationship('User', foreign_keys=[sender_id])
+    receiver = db.relationship('User', foreign_keys=[receiver_id])
