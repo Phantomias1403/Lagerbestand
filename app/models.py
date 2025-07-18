@@ -92,6 +92,7 @@ class Category(db.Model):
 class EndingCategory(db.Model):
     """Suffix-based category used for price/multiplier overrides."""
     id = db.Column(db.Integer, primary_key=True)
+    category = db.Column(db.String(100), nullable=False, default='')
     suffix = db.Column(db.String(20), unique=True, nullable=False)
     price = db.Column(db.Float, default=0.0)
     csv_multiplier = db.Column(db.Integer, default=1)
