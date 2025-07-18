@@ -6,7 +6,7 @@
   <div class="col-6 col-md-3 text-center mb-4">
     <a href="{{ url_for('main.login', user_id=u.id) }}" class="text-decoration-none">
       {% if u.profile_image %}
-      <img src="{{ u.profile_image }}" class="img-fluid rounded-circle mb-2" style="width: 120px; height: 120px; object-fit: cover;">
+      <img src="{{ url_for('static', filename=u.profile_image) }}" class="img-fluid rounded-circle mb-2" style="width: 120px; height: 120px; object-fit: cover;">
       {% else %}
       <div class="bg-secondary rounded-circle mb-2" style="width: 120px; height: 120px;"></div>
       {% endif %}
