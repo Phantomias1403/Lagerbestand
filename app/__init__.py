@@ -21,6 +21,8 @@ def create_app():
     app.config['MAIL_USERNAME'] = os.environ.get('MAIL_USERNAME')
     app.config['MAIL_PASSWORD'] = os.environ.get('MAIL_PASSWORD')
     app.config['MAIL_SENDER'] = os.environ.get('MAIL_SENDER', app.config.get('MAIL_USERNAME'))
+    app.config['MAIL_USE_TLS'] = os.environ.get('MAIL_USE_TLS', '0') == '1'
+    app.config['MAIL_USE_SSL'] = os.environ.get('MAIL_USE_SSL', '0') == '1'
 
     # Benutzerverwaltung aktivieren über Umgebungsvariable ENABLE_USER_MANAGEMENT (default = aktiviert)
     app.config['ENABLE_USER_MANAGEMENT'] = os.environ.get('ENABLE_USER_MANAGEMENT', '1') == '1'
