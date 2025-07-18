@@ -33,13 +33,21 @@ def create_app():
         app.register_blueprint(routes.bp)
         db.create_all()
 
-        # Nur Admin-Nutzer anlegen, wenn Benutzerverwaltung aktiv ist
-        if app.config['ENABLE_USER_MANAGEMENT'] and models.User.query.count() == 0:
-            admin = models.User(username='admin', is_admin=True, is_staff=True)
-            admin.set_password('admin')
-            db.session.add(admin)
+        # Ensure email column exists
+        from sqlalchemy import inspect
+        inspector = inspect(db.engine)
+        if 'email' not in [c['name'] for c in inspector.get_columns('user')]:
+            db.engine.execute('ALTER TABLE user ADD COLUMN email VARCHAR(120)')
             db.session.commit()
 
+        # Mindestens einen Admin-Nutzer sicherstellen
+        if app.config['ENABLE_USER_MANAGEMENT']:
+            if models.User.query.filter_by(is_admin=True).count() == 0:
+                admin = models.User(username='admin', is_admin=True, is_staff=True)
+                admin.set_password('admin')
+                db.session.add(admin)
+                db.session.commit()
+                
         # Initial categories from prefix settings
         if models.Category.query.count() == 0:
             from .utils import _get_prefix_definitions
