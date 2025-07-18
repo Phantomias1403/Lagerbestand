@@ -1,7 +1,7 @@
 {% extends 'layout.html' %}
 {% block content %}
 <h1>Profil bearbeiten</h1>
-<form method="post">
+<form method="post" enctype="multipart/form-data">
   <div class="mb-3">
     <label class="form-label">Benutzername</label>
     <input class="form-control" name="username" value="{{ current_user.username }}" required>
@@ -16,11 +16,16 @@
   </div>
   <div class="mb-3">
     <label class="form-label">Geschlecht</label>
-    <input class="form-control" name="gender" value="{{ current_user.gender }}">
+    <select class="form-select" name="gender">
+      <option value="" {% if not current_user.gender %}selected{% endif %}>--</option>
+      <option value="Männlich" {% if current_user.gender=='Männlich' %}selected{% endif %}>Männlich</option>
+      <option value="Weiblich" {% if current_user.gender=='Weiblich' %}selected{% endif %}>Weiblich</option>
+      <option value="Divers" {% if current_user.gender=='Divers' %}selected{% endif %}>Divers</option>
+    </select>
   </div>
   <div class="mb-3">
-    <label class="form-label">Profilbild URL</label>
-    <input class="form-control" name="profile_image" value="{{ current_user.profile_image }}">
+    <label class="form-label">Profilbild</label>
+    <input type="file" class="form-control" name="profile_image">
   </div>
   <div class="mb-3">
     <label class="form-label">Bio</label>
