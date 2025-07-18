@@ -8,6 +8,14 @@
     <input class="form-control" name="suffix" value="{{ ending.suffix }}" required>
   </div>
   <div class="mb-3">
+    <label class="form-label">Kategorie</label>
+    <select class="form-select" name="category" required>
+      {% for c in categories %}
+      <option value="{{ c }}" {% if ending.category == c %}selected{% endif %}>{{ c }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="mb-3">
     <label class="form-label">Preis</label>
     <input class="form-control" type="number" step="0.01" name="price" value="{{ ending.price }}">
   </div>
