@@ -123,17 +123,21 @@ def get_default_minimum_stock(category: str) -> int:
             return min_stock
     return DEFAULT_MIN_STOCK.get(category.lower(), 0)
 
-def price_from_suffix(sku: str) -> float | None:
-    """Return price configured for a specific SKU suffix."""
+def price_from_suffix(sku: str, category: str | None = None) -> float | None:
+    """Return unit price configured for a specific combination of category and SKU suffix."""
     for end in EndingCategory.query.all():
-        if sku.endswith(end.suffix):
-            return end.price
+        if sku.endswith(end.suffix) and (category is None or end.category == category):
+            price = end.price
+            multiplier = end.csv_multiplier or 1
+            if multiplier and multiplier > 1:
+                price = price / multiplier
+            return price
     return None
 
 
-def csv_multiplier_from_suffix(sku: str) -> int | None:
-    """Return CSV multiplier for a specific SKU suffix."""
+def csv_multiplier_from_suffix(sku: str, category: str | None = None) -> int | None:
+    """Return CSV multiplier for a specific combination of category and SKU suffix."""
     for end in EndingCategory.query.all():
-        if sku.endswith(end.suffix):
+        if sku.endswith(end.suffix) and (category is None or end.category == category):
             return end.csv_multiplier or 1
     return None
