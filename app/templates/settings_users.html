@@ -4,11 +4,12 @@
 <a class="btn btn-success mb-3" href="{{ url_for('main.new_user') }}">Neuer Benutzer</a>
 <div class="table-responsive">
 <table class="table table-striped">
-  <thead><tr><th>Benutzername</th><th>Admin</th><th>Staff</th><th></th></tr></thead>
+  <thead><tr><th>Benutzername</th><th>Name</th><th>Admin</th><th>Staff</th><th></th></tr></thead>
   <tbody>
   {% for u in users %}
   <tr>
     <td>{{ u.username }}</td>
+    <td>{{ u.name }}</td>
     <td>{{ 'Ja' if u.is_admin else 'Nein' }}</td>
     <td>{{ 'Ja' if u.is_staff else 'Nein' }}</td>
     <td>
