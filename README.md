@@ -14,8 +14,8 @@ Dieses Projekt ist ein einfaches Lagerverwaltungssystem für Fanartikel basieren
    ```
 3. Im Browser `http://localhost:5000` öffnen.
 
-Die Benutzerverwaltung ist standardmäßig deaktiviert. Man kann sie beim starten in den 
-Einstellungen aktivieren.
+Die Benutzerverwaltung ist standardmäßig aktiviert. Momentan kann man sie
+nicht deaktivieren.
 Beim ersten Start mit aktivierter Benutzerverwaltung wird automatisch ein
 Admin-Benutzer `admin` mit Passwort `admin` angelegt.
 
