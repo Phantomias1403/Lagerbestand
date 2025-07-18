@@ -750,12 +750,14 @@ def invoice_analysis():
     data = []
     for r in query_results:
         multiplier = csv_multiplier_from_suffix(r.sku, r.category)
+        # Fallback für Sticker-Kategorie
         if multiplier is None and r.category and r.category.strip().lower() == 'sticker':
             multiplier = int(get_setting('sticker_csv_multiplier', '100') or '100')
+        # Absicherung gegen fehlerhafte Werte
         if not multiplier or multiplier < 1:
             multiplier = 1
-
-        revenue = (r.quantity/multiplier) * r.price
+        quantity = r.quantity/multiplier
+        revenue = r.price * quantity
         data.append(
             dict(name=r.name, sku=r.sku, quantity=r.quantity, revenue=revenue)
         )
@@ -1102,6 +1104,44 @@ def settings_general():
     return render_template('settings_general.html', settings=values)
 
 
+@bp.route('/settings/cleanup', methods=['POST'])
+@login_optional
+@admin_required
+def settings_cleanup():
+    """Delete selected parts of the database after password confirmation."""
+    option = request.form.get('delete_option', '')
+    password = request.form.get('password', '')
+
+    if not current_user.check_password(password):
+        flash('Falsches Passwort.')
+        return redirect(url_for('main.settings_general'))
+
+    if option == 'orders':
+        Movement.query.delete()
+        OrderItem.query.delete()
+        Order.query.delete()
+        db.session.commit()
+        flash('Alle Bestellungen gelöscht.')
+    elif option == 'articles':
+        Movement.query.delete()
+        OrderItem.query.delete()
+        Article.query.delete()
+        db.session.commit()
+        flash('Alle Artikel gelöscht.')
+    elif option == 'all':
+        Movement.query.delete()
+        OrderItem.query.delete()
+        Order.query.delete()
+        Article.query.delete()
+        Category.query.delete()
+        db.session.commit()
+        flash('Datenbank bereinigt.')
+    else:
+        flash('Keine gültige Option ausgewählt.')
+    return redirect(url_for('main.settings_general'))
+
+
+
 @bp.route('/settings/categories')
 @login_optional
 @admin_required
@@ -1269,7 +1309,7 @@ def apply_ending_price(ending_id):
     if ending.suffix:
         price = ending.price
         if ending.csv_multiplier and ending.csv_multiplier > 1:
-            price = price / ending.csv_multiplier
+            price = price 
         Article.query.filter(
             Article.category == ending.category,
             Article.sku.like(f"%{ending.suffix}")
