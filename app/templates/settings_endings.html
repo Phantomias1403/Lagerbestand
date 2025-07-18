@@ -5,6 +5,7 @@
   <thead>
     <tr>
       <th>Endung</th>
+      <th>Kategorie</th>
       <th>Preis</th>
       <th>CSV Multiplikator</th>
       <th>Aktionen</th>
@@ -14,6 +15,7 @@
     {% for e in endings %}
     <tr>
       <td>{{ e.suffix }}</td>
+      <td>{{ e.category }}</td>
       <td>{{ '%.2f' % e.price if e.price is not none else '' }}</td>
       <td>{{ e.csv_multiplier }}</td>
       <td>
@@ -31,9 +33,17 @@
 </table>
 <form method="post" action="{{ url_for('main.add_ending') }}" class="mt-3">
   <div class="row g-2">
-    <div class="col-md-4"><input class="form-control" name="suffix" placeholder="Endung" required></div>
-    <div class="col-md-3"><input class="form-control" name="price" placeholder="Preis" type="number" step="0.01"></div>
-    <div class="col-md-3"><input class="form-control" name="multiplier" placeholder="Multiplikator" type="number"></div>
+    <div class="col-md-3"><input class="form-control" name="suffix" placeholder="Endung" required></div>
+    <div class="col-md-3">
+      <select class="form-select" name="category" required>
+        <option value="" selected disabled>Kategorie</option>
+        {% for c in categories %}
+        <option value="{{ c }}">{{ c }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-md-2"><input class="form-control" name="price" placeholder="Preis" type="number" step="0.01"></div>
+    <div class="col-md-2"><input class="form-control" name="multiplier" placeholder="Multiplikator" type="number"></div>
     <div class="col-md-2"><button class="btn btn-success" type="submit">Hinzufügen</button></div>
   </div>
 </form>
