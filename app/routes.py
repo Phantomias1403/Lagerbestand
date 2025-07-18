@@ -749,10 +749,13 @@ def invoice_analysis():
 
     data = []
     for r in query_results:
-        price_per_unit = r.price
-        if r.category and r.category.strip().lower() == 'sticker':
-            price_per_unit = r.price / 100
-        revenue = (r.quantity or 0) * price_per_unit
+        multiplier = csv_multiplier_from_suffix(r.sku, r.category)
+        if multiplier is None and r.category and r.category.strip().lower() == 'sticker':
+            multiplier = int(get_setting('sticker_csv_multiplier', '100') or '100')
+        if not multiplier or multiplier < 1:
+            multiplier = 1
+
+        revenue = (r.quantity/multiplier) * r.price
         data.append(
             dict(name=r.name, sku=r.sku, quantity=r.quantity, revenue=revenue)
         )
