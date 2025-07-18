@@ -12,6 +12,8 @@ from flask import (
 )
 from flask_login import current_user, login_required, login_user, logout_user
 from sqlalchemy import func
+import os
+from werkzeug.utils import secure_filename
 
 from . import db
 from .models import User, Article, Movement, Order, OrderItem, Category, EndingCategory
@@ -145,7 +147,7 @@ def profile():
         name = request.form.get('name', '').strip()
         gender = request.form.get('gender', '').strip()
         bio = request.form.get('bio', '').strip()
-        image = request.form.get('profile_image', '').strip()
+        file = request.files.get('profile_image')
 
         if username and username != current_user.username:
             if User.query.filter_by(username=username).first():
@@ -161,8 +163,18 @@ def profile():
         if gender:
             current_user.gender = gender
         current_user.bio = bio
-        if image:
-            current_user.profile_image = image
+        if file and file.filename:
+            filename = secure_filename(file.filename)
+            folder = current_app.config['PROFILE_IMAGE_FOLDER']
+            base, ext = os.path.splitext(filename)
+            counter = 1
+            path = os.path.join(folder, filename)
+            while os.path.exists(path):
+                filename = f"{base}_{counter}{ext}"
+                path = os.path.join(folder, filename)
+                counter += 1
+            file.save(path)
+            current_user.profile_image = f"profile_pics/{filename}"
 
 
         db.session.commit()
@@ -1380,7 +1392,7 @@ def new_user():
         name = request.form.get('name', '').strip()
         gender = request.form.get('gender', '').strip()
         bio = request.form.get('bio', '').strip()
-        image = request.form.get('profile_image', '').strip()
+        file = request.files.get('profile_image')
         is_admin = bool(request.form.get('is_admin'))
         is_staff = bool(request.form.get('is_staff'))
 
@@ -1399,8 +1411,19 @@ def new_user():
             name=name,
             gender=gender,
             bio=bio,
-            profile_image=image,
         )
+        if file and file.filename:
+            filename = secure_filename(file.filename)
+            folder = current_app.config['PROFILE_IMAGE_FOLDER']
+            base, ext = os.path.splitext(filename)
+            counter = 1
+            path = os.path.join(folder, filename)
+            while os.path.exists(path):
+                filename = f"{base}_{counter}{ext}"
+                path = os.path.join(folder, filename)
+                counter += 1
+            file.save(path)
+            user.profile_image = f"profile_pics/{filename}"
         user.set_password(password)
         db.session.add(user)
         db.session.commit()
@@ -1421,7 +1444,7 @@ def edit_user(user_id):
         name = request.form.get('name', '').strip()
         gender = request.form.get('gender', '').strip()
         bio = request.form.get('bio', '').strip()
-        image = request.form.get('profile_image', '').strip()
+        file = request.files.get('profile_image')
         user.is_admin = bool(request.form.get('is_admin'))
         user.is_staff = bool(request.form.get('is_staff')) or user.is_admin
         if password:
@@ -1431,8 +1454,18 @@ def edit_user(user_id):
         if gender:
             user.gender = gender
         user.bio = bio
-        if image:
-            user.profile_image = image
+        if file and file.filename:
+            filename = secure_filename(file.filename)
+            folder = current_app.config['PROFILE_IMAGE_FOLDER']
+            base, ext = os.path.splitext(filename)
+            counter = 1
+            path = os.path.join(folder, filename)
+            while os.path.exists(path):
+                filename = f"{base}_{counter}{ext}"
+                path = os.path.join(folder, filename)
+                counter += 1
+            file.save(path)
+            user.profile_image = f"profile_pics/{filename}"
         db.session.commit()
         flash('Benutzer aktualisiert')
         return redirect(url_for('main.settings_users'))
