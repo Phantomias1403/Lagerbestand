@@ -10,6 +10,10 @@ class User(UserMixin, db.Model):
     password_hash = db.Column(db.String(128), nullable=False)
     is_admin = db.Column(db.Boolean, default=False)
     is_staff = db.Column(db.Boolean, default=False)
+    name = db.Column(db.String(120))
+    gender = db.Column(db.String(20))
+    bio = db.Column(db.String(500))
+    profile_image = db.Column(db.String(200)) 
 
     def has_staff_rights(self):
         return self.is_admin or self.is_staff
