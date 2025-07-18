@@ -58,6 +58,13 @@ Rechnungsnummer zugeordnet wurde.
 Der Import legt nicht vorhandene Datensätze neu an und überschreibt vorhandene
 Artikel anhand ihrer SKU.
 
+## Datenbank bereinigen
+Im Reiter **Allgemein** der Einstellungen gibt es einen Abschnitt, um Teile der
+Datenbank zu löschen. Dort kann man auswählen, ob ausschließlich die gespeicherten
+Bestellungen, alle Artikel samt Bewegungen oder die komplette Datenbank (ohne
+Benutzer und Einstellungen) entfernt werden sollen. Zum Bestätigen muss das
+eigene Passwort erneut eingegeben werden.
+
 ## Erweiterung
 Das System ist modular aufgebaut und lässt sich später um Funktionen wie eine Schnittstelle zu eBay/Etsy erweitern.
 
