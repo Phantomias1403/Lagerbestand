@@ -11,6 +11,10 @@
     <input type="password" class="form-control" name="password">
   </div>
   <div class="mb-3">
+    <label class="form-label">E-Mail</label>
+    <input class="form-control" name="email" value="{{ current_user.email }}">
+  </div>
+  <div class="mb-3">
     <label class="form-label">Name</label>
     <input class="form-control" name="name" value="{{ current_user.name }}">
   </div>
