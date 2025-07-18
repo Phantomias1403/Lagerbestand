@@ -18,6 +18,10 @@
     <input type="password" class="form-control" name="password" {% if not user %}required{% endif %}>
   </div>
   <div class="mb-3">
+    <label class="form-label">E-Mail</label>
+    <input class="form-control" name="email" value="{{ user.email if user else '' }}">
+  </div>
+  <div class="mb-3">
     <label class="form-label">Name</label>
     <input class="form-control" name="name" value="{{ user.name if user else '' }}">
   </div>
