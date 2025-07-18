@@ -11,6 +11,10 @@ def create_app():
     app.config['SECRET_KEY'] = 'change-me'
     app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///inventory.db'
 
+    # Folder for uploaded profile images
+    app.config['PROFILE_IMAGE_FOLDER'] = os.path.join(app.static_folder, 'profile_pics')
+    os.makedirs(app.config['PROFILE_IMAGE_FOLDER'], exist_ok=True)
+
     # Benutzerverwaltung aktivieren über Umgebungsvariable ENABLE_USER_MANAGEMENT (default = aktiviert)
     app.config['ENABLE_USER_MANAGEMENT'] = os.environ.get('ENABLE_USER_MANAGEMENT', '1') == '1'
 
