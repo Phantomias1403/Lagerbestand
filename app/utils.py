@@ -4,6 +4,7 @@ from .models import Setting, Category, EndingCategory
 from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
 from email.message import EmailMessage
 import smtplib
+import os
 
 
 def get_setting(key: str, default: str = '') -> str:
@@ -167,6 +168,8 @@ def send_email(to: str, subject: str, body: str) -> None:
     username = current_app.config.get('MAIL_USERNAME')
     password = current_app.config.get('MAIL_PASSWORD')
     sender = current_app.config.get('MAIL_SENDER', username)
+    use_tls = current_app.config.get('MAIL_USE_TLS', str(port) == '587')
+    use_ssl = current_app.config.get('MAIL_USE_SSL', str(port) == '465')
 
     msg = EmailMessage()
     msg['Subject'] = subject
@@ -174,8 +177,10 @@ def send_email(to: str, subject: str, body: str) -> None:
     msg['To'] = to
     msg.set_content(body)
 
-    with smtplib.SMTP(server, port) as smtp:
-        if username and password:
+    smtp_class = smtplib.SMTP_SSL if use_ssl else smtplib.SMTP
+    with smtp_class(server, port) as smtp:
+        if use_tls and not use_ssl:
             smtp.starttls()
+        if username and password:
             smtp.login(username, password)
         smtp.send_message(msg)
