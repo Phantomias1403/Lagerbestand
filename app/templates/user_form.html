@@ -1,7 +1,7 @@
 {% extends 'layout.html' %}
 {% block content %}
 <h1>{% if user %}Benutzer bearbeiten{% else %}Neuer Benutzer{% endif %}</h1>
-<form method="post">
+<form method="post" enctype="multipart/form-data">
   {% if not user %}
   <div class="mb-3">
     <label class="form-label">Benutzername</label>
@@ -23,11 +23,16 @@
   </div>
   <div class="mb-3">
     <label class="form-label">Geschlecht</label>
-    <input class="form-control" name="gender" value="{{ user.gender if user else '' }}">
+    <select class="form-select" name="gender">
+      <option value="" {% if not user or not user.gender %}selected{% endif %}>--</option>
+      <option value="Männlich" {% if user and user.gender=='Männlich' %}selected{% endif %}>Männlich</option>
+      <option value="Weiblich" {% if user and user.gender=='Weiblich' %}selected{% endif %}>Weiblich</option>
+      <option value="Divers" {% if user and user.gender=='Divers' %}selected{% endif %}>Divers</option>
+    </select>
   </div>
   <div class="mb-3">
-    <label class="form-label">Profilbild URL</label>
-    <input class="form-control" name="profile_image" value="{{ user.profile_image if user else '' }}">
+    <label class="form-label">Profilbild</label>
+    <input type="file" class="form-control" name="profile_image">
   </div>
   <div class="mb-3">
     <label class="form-label">Bio</label>
