@@ -192,7 +192,7 @@ def new_article():
                 return redirect(url_for('main.new_article'))
         else:
             # Nur wenn das Feld leer ist, Standardpreis berechnen
-            p = price_from_suffix(article.sku)
+            p = price_from_suffix(article.sku, article.category)
             if p is None:
                 p = price_from_sku(article.sku)
             if p is None:
@@ -349,7 +349,7 @@ def import_csv():
                     article.price = article.price  # Beibehalten, falls fehlerhaft
             elif not article.price or article.price == 0:
                 # Nur wenn Preis nicht gesetzt, versuche Default
-                p = price_from_suffix(sku)
+                p = price_from_suffix(sku, article.category)
                 if p is None:
                     p = price_from_sku(sku)
                 if p is None:
@@ -582,7 +582,7 @@ def backup_import():
                 except ValueError:
                     article.price = article.price  # Behalte alten Preis
             elif not article.price or article.price == 0:
-                p = price_from_suffix(sku)
+                p = price_from_suffix(sku, article.category)
                 if p is None:
                     p = price_from_sku(sku)
                 if p is None:
@@ -751,7 +751,7 @@ def invoice_analysis():
     for r in query_results:
         price_per_unit = r.price
         if r.category and r.category.strip().lower() == 'sticker':
-            price_per_unit = r.price / 100.0
+            price_per_unit = r.price / 100
         revenue = (r.quantity or 0) * price_per_unit
         data.append(
             dict(name=r.name, sku=r.sku, quantity=r.quantity, revenue=revenue)
@@ -856,7 +856,7 @@ def inventory():
                     if not article:
                         continue
 
-                    multiplier = csv_multiplier_from_suffix(article.sku)
+                    multiplier = csv_multiplier_from_suffix(article.sku, article.category)
                     if multiplier is None and article.category and article.category.strip().lower() == 'sticker':
                         multiplier = int(get_setting('sticker_csv_multiplier', '100') or '100')
                     if multiplier and multiplier != 1:
@@ -1202,7 +1202,8 @@ def delete_category(category_id):
 @admin_required
 def settings_endings():
     endings = EndingCategory.query.order_by(EndingCategory.suffix).all()
-    return render_template('settings_endings.html', endings=endings)
+    categories = get_categories()
+    return render_template('settings_endings.html', endings=endings, categories=categories)
 
 
 @bp.route('/settings/endings/add', methods=['POST'])
@@ -1210,7 +1211,8 @@ def settings_endings():
 @admin_required
 def add_ending():
     suffix = request.form.get('suffix', '').strip()
-    if suffix and not EndingCategory.query.filter_by(suffix=suffix).first():
+    category = request.form.get('category', '').strip()
+    if suffix and category and not EndingCategory.query.filter_by(suffix=suffix, category=category).first():
         price_raw = request.form.get('price', '').replace(',', '.').strip()
         multiplier_raw = request.form.get('multiplier', '').strip()
         try:
@@ -1221,7 +1223,7 @@ def add_ending():
             multiplier = int(multiplier_raw) if multiplier_raw else 1
         except ValueError:
             multiplier = 1
-        db.session.add(EndingCategory(suffix=suffix, price=price, csv_multiplier=multiplier))
+        db.session.add(EndingCategory(suffix=suffix, category=category, price=price, csv_multiplier=multiplier))
         db.session.commit()
         flash('Endung hinzugefügt')
     return redirect(url_for('main.settings_endings'))
@@ -1234,10 +1236,13 @@ def edit_ending(ending_id):
     ending = EndingCategory.query.get_or_404(ending_id)
     if request.method == 'POST':
         suffix = request.form.get('suffix', '').strip()
+        category = request.form.get('category', '').strip()        
         price_raw = request.form.get('price', '').replace(',', '.').strip()
         multiplier_raw = request.form.get('multiplier', '').strip()
         if suffix:
             ending.suffix = suffix
+        if category:
+            ending.category = category
         try:
             ending.price = float(price_raw) if price_raw else 0.0
         except ValueError:
@@ -1249,7 +1254,8 @@ def edit_ending(ending_id):
         db.session.commit()
         flash('Endung aktualisiert')
         return redirect(url_for('main.settings_endings'))
-    return render_template('ending_form.html', ending=ending)
+    categories = get_categories()
+    return render_template('ending_form.html', ending=ending, categories=categories)
 
 @bp.route('/settings/endings/<int:ending_id>/apply', methods=['POST'])
 @login_optional
@@ -1258,9 +1264,13 @@ def apply_ending_price(ending_id):
     """Apply the price of an ending category to all matching articles."""
     ending = EndingCategory.query.get_or_404(ending_id)
     if ending.suffix:
-        Article.query.filter(Article.sku.like(f"%{ending.suffix}")).update({
-            'price': ending.price,
-        })
+        price = ending.price
+        if ending.csv_multiplier and ending.csv_multiplier > 1:
+            price = price / ending.csv_multiplier
+        Article.query.filter(
+            Article.category == ending.category,
+            Article.sku.like(f"%{ending.suffix}")
+        ).update({'price': price})
         db.session.commit()
         flash('Preis auf Artikel angewendet')
     return redirect(url_for('main.settings_endings'))
