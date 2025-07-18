@@ -29,7 +29,11 @@ from .utils import (
     csv_multiplier_from_suffix,
     get_default_price,
     get_default_minimum_stock,
+    send_email,
+    generate_reset_token,
+    verify_reset_token,
 )
+
 from datetime import datetime
 
 
@@ -128,21 +132,51 @@ def login():
 
 
 @bp.route('/reset_password', methods=['GET', 'POST'])
-def reset_password():
+def reset_password_request():
     if not user_management_enabled():
         return redirect(url_for('main.index'))
+    
     if request.method == 'POST':
-        username = request.form.get('username', '').strip()
         email = request.form.get('email', '').strip()
+        user = User.query.filter_by(email=email).first()
+        if user and user.email:
+            token = generate_reset_token(user.id)
+            reset_link = url_for('main.reset_password_token', token=token, _external=True)
+            try:
+                send_email(user.email, 'Passwort zurücksetzen',
+                           f'Folge diesem Link, um dein Passwort zu ändern: {reset_link}')
+                flash('E-Mail zum Zurücksetzen wurde gesendet')
+            except Exception:
+                flash('E-Mail konnte nicht gesendet werden')
+            return redirect(url_for('main.login'))
+        flash('E-Mail nicht gefunden')
+    return render_template('reset_password_request.html')
+
+
+@bp.route('/reset_password/<token>', methods=['GET', 'POST'])
+def reset_password_token(token):
+    if not user_management_enabled():
+        return redirect(url_for('main.index'))
+
+    user_id = verify_reset_token(token)
+    if not user_id:
+        flash('Link ist ungültig oder abgelaufen')
+        return redirect(url_for('main.reset_password_request'))
+
+    user = User.query.get(user_id)
+    if not user:
+        flash('Benutzer nicht gefunden')
+        return redirect(url_for('main.reset_password_request'))
+
+    if request.method == 'POST':
         password = request.form.get('password', '').strip()
-        user = User.query.filter_by(username=username, email=email).first()
-        if user and password:
+        if password:
             user.set_password(password)
             db.session.commit()
             flash('Passwort wurde zurückgesetzt')
             return redirect(url_for('main.login'))
         flash('Ungültige Daten')
-    return render_template('reset_password.html')
+    return render_template('reset_password_form.html')
 
 @bp.route('/logout')
 @login_optional
