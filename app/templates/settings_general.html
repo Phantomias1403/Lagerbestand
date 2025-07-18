@@ -12,4 +12,22 @@
     <input class="form-control" name="etikett_format" value="{{ settings.etikett_format }}" placeholder="100x50"></div>
   <button type="submit" class="btn btn-primary">Speichern</button>
 </form>
+
+<hr>
+<h2>Daten löschen</h2>
+<form method="post" action="{{ url_for('main.settings_cleanup') }}">
+  <div class="mb-3">
+    <label class="form-label">Zu löschende Daten</label>
+    <select class="form-select" name="delete_option" required>
+      <option value="orders">Nur Bestellungen</option>
+      <option value="articles">Artikel &amp; Bewegungen</option>
+      <option value="all">Komplette Datenbank</option>
+    </select>
+  </div>
+  <div class="mb-3">
+    <label class="form-label">Passwort zur Bestätigung</label>
+    <input class="form-control" type="password" name="password" required>
+  </div>
+  <button type="submit" class="btn btn-danger">Löschen</button>
+</form>
 {% endblock %}
