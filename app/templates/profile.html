@@ -10,6 +10,22 @@
     <label class="form-label">Neues Passwort (optional)</label>
     <input type="password" class="form-control" name="password">
   </div>
+  <div class="mb-3">
+    <label class="form-label">Name</label>
+    <input class="form-control" name="name" value="{{ current_user.name }}">
+  </div>
+  <div class="mb-3">
+    <label class="form-label">Geschlecht</label>
+    <input class="form-control" name="gender" value="{{ current_user.gender }}">
+  </div>
+  <div class="mb-3">
+    <label class="form-label">Profilbild URL</label>
+    <input class="form-control" name="profile_image" value="{{ current_user.profile_image }}">
+  </div>
+  <div class="mb-3">
+    <label class="form-label">Bio</label>
+    <textarea class="form-control" name="bio">{{ current_user.bio }}</textarea>
+  </div>
   <div class="d-grid d-md-block">
     <button type="submit" class="btn btn-primary">Speichern</button>
   </div>
