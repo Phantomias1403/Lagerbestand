@@ -75,6 +75,8 @@ def inject_config():
 
 @bp.route('/')
 def index():
+    if user_management_enabled() and not current_user.is_authenticated:
+        return redirect(url_for('main.select_profile'))
     query = Article.query
     search = request.args.get('search')
     if search:
@@ -95,11 +97,25 @@ def index():
     categories = get_categories()
     return render_template('index.html', articles=articles, categories=categories, selected_category=category)
 
+@bp.route('/profiles')
+def select_profile():
+    if not user_management_enabled():
+        return redirect(url_for('main.index'))
+    users = User.query.all()
+    return render_template('profile_select.html', users=users)
+
+
 
 @bp.route('/login', methods=['GET', 'POST'])
 def login():
     if not user_management_enabled():
         return redirect(url_for('main.index'))
+    preselect_id = request.args.get('user_id')
+    if preselect_id and preselect_id.isdigit():
+        user = User.query.get(int(preselect_id))
+        if user:
+            login_user(user)
+            return redirect(url_for('main.index'))
     if request.method == 'POST':
         username = request.form['username']
         password = request.form['password']
@@ -126,6 +142,10 @@ def profile():
     if request.method == 'POST':
         username = request.form.get('username', '').strip()
         password = request.form.get('password', '').strip()
+        name = request.form.get('name', '').strip()
+        gender = request.form.get('gender', '').strip()
+        bio = request.form.get('bio', '').strip()
+        image = request.form.get('profile_image', '').strip()
 
         if username and username != current_user.username:
             if User.query.filter_by(username=username).first():
@@ -135,6 +155,15 @@ def profile():
 
         if password:
             current_user.set_password(password)
+
+        if name:
+            current_user.name = name
+        if gender:
+            current_user.gender = gender
+        current_user.bio = bio
+        if image:
+            current_user.profile_image = image
+
 
         db.session.commit()
         flash('Profil aktualisiert')
@@ -1348,6 +1377,10 @@ def new_user():
     if request.method == 'POST':
         username = request.form.get('username', '').strip()
         password = request.form.get('password', '').strip()
+        name = request.form.get('name', '').strip()
+        gender = request.form.get('gender', '').strip()
+        bio = request.form.get('bio', '').strip()
+        image = request.form.get('profile_image', '').strip()
         is_admin = bool(request.form.get('is_admin'))
         is_staff = bool(request.form.get('is_staff'))
 
@@ -1359,7 +1392,15 @@ def new_user():
             flash('Benutzername existiert bereits.')
             return redirect(url_for('main.new_user'))
 
-        user = User(username=username, is_admin=is_admin, is_staff=is_staff or is_admin)
+        user = User(
+            username=username,
+            is_admin=is_admin,
+            is_staff=is_staff or is_admin,
+            name=name,
+            gender=gender,
+            bio=bio,
+            profile_image=image,
+        )
         user.set_password(password)
         db.session.add(user)
         db.session.commit()
@@ -1377,10 +1418,21 @@ def edit_user(user_id):
 
     if request.method == 'POST':
         password = request.form.get('password', '').strip()
+        name = request.form.get('name', '').strip()
+        gender = request.form.get('gender', '').strip()
+        bio = request.form.get('bio', '').strip()
+        image = request.form.get('profile_image', '').strip()
         user.is_admin = bool(request.form.get('is_admin'))
         user.is_staff = bool(request.form.get('is_staff')) or user.is_admin
         if password:
             user.set_password(password)
+        if name:
+            user.name = name
+        if gender:
+            user.gender = gender
+        user.bio = bio
+        if image:
+            user.profile_image = image
         db.session.commit()
         flash('Benutzer aktualisiert')
         return redirect(url_for('main.settings_users'))
