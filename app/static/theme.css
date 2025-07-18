@@ -9,8 +9,8 @@
 }
 
 [data-bs-theme="dark"] .table-warning {
-  --bs-table-bg: #ffffff;     
-  --bs-table-striped-bg: #ffffff;
+  --bs-table-bg: #ffa760;     
+  --bs-table-striped-bg: #ffa760;
   color: #fff;
 }
 
