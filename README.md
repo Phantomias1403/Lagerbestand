@@ -31,6 +31,8 @@ konfiguriert sein. Die Anwendung liest dazu folgende Umgebungsvariablen:
 * `MAIL_USERNAME` – Benutzername für die Anmeldung (optional)
 * `MAIL_PASSWORD` – Passwort für die Anmeldung (optional)
 * `MAIL_SENDER` – Absenderadresse der E-Mails
+* `MAIL_USE_TLS` – TLS-Verbindung verwenden ("1" für aktiv)
+* `MAIL_USE_SSL` – SSL-Verbindung verwenden ("1" für aktiv)
 
 Nach Einrichtung kann über den Link "Passwort vergessen?" auf der Login-Seite
 eine E-Mail mit einem Zurücksetz-Link angefordert werden.
