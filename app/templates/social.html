@@ -1,0 +1,19 @@
+{% extends 'layout.html' %}
+{% block content %}
+<h1>Profile</h1>
+<div class="row">
+  {% for u in users %}
+  <div class="col-6 col-md-3 text-center mb-4">
+    {% if u.profile_image %}
+    <img src="{{ url_for('static', filename=u.profile_image) }}" class="img-fluid rounded-circle mb-2" style="width:120px; height:120px; object-fit:cover;">
+    {% else %}
+    <div class="bg-secondary rounded-circle mb-2" style="width:120px; height:120px;"></div>
+    {% endif %}
+    <div>{{ u.name or u.username }}</div>
+    {% if current_user.is_authenticated and current_user.id != u.id %}
+    <a class="btn btn-sm btn-primary mt-1" href="{{ url_for('main.chat', user_id=u.id) }}">Nachricht</a>
+    {% endif %}
+  </div>
+  {% endfor %}
+</div>
+{% endblock %}
