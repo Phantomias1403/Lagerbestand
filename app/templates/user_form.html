@@ -17,6 +17,22 @@
     <label class="form-label">{% if user %}Neues Passwort{% else %}Passwort{% endif %}</label>
     <input type="password" class="form-control" name="password" {% if not user %}required{% endif %}>
   </div>
+  <div class="mb-3">
+    <label class="form-label">Name</label>
+    <input class="form-control" name="name" value="{{ user.name if user else '' }}">
+  </div>
+  <div class="mb-3">
+    <label class="form-label">Geschlecht</label>
+    <input class="form-control" name="gender" value="{{ user.gender if user else '' }}">
+  </div>
+  <div class="mb-3">
+    <label class="form-label">Profilbild URL</label>
+    <input class="form-control" name="profile_image" value="{{ user.profile_image if user else '' }}">
+  </div>
+  <div class="mb-3">
+    <label class="form-label">Bio</label>
+    <textarea class="form-control" name="bio">{{ user.bio if user else '' }}</textarea>
+  </div>
   <div class="form-check mb-3">
     <input class="form-check-input" type="checkbox" id="is_admin" name="is_admin" value="1" {% if user and user.is_admin %}checked{% endif %}>
     <label class="form-check-label" for="is_admin">Admin</label>
