@@ -127,6 +127,23 @@ def login():
     return render_template('login.html', preselect_user=preselect_user)
 
 
+@bp.route('/reset_password', methods=['GET', 'POST'])
+def reset_password():
+    if not user_management_enabled():
+        return redirect(url_for('main.index'))
+    if request.method == 'POST':
+        username = request.form.get('username', '').strip()
+        email = request.form.get('email', '').strip()
+        password = request.form.get('password', '').strip()
+        user = User.query.filter_by(username=username, email=email).first()
+        if user and password:
+            user.set_password(password)
+            db.session.commit()
+            flash('Passwort wurde zurückgesetzt')
+            return redirect(url_for('main.login'))
+        flash('Ungültige Daten')
+    return render_template('reset_password.html')
+
 @bp.route('/logout')
 @login_optional
 def logout():
@@ -142,6 +159,7 @@ def profile():
     if request.method == 'POST':
         username = request.form.get('username', '').strip()
         password = request.form.get('password', '').strip()
+        email = request.form.get('email', '').strip()
         name = request.form.get('name', '').strip()
         gender = request.form.get('gender', '').strip()
         bio = request.form.get('bio', '').strip()
@@ -152,6 +170,12 @@ def profile():
                 flash('Benutzername existiert bereits.')
                 return redirect(url_for('main.profile'))
             current_user.username = username
+
+        if email and email != current_user.email:
+            if User.query.filter_by(email=email).first():
+                flash('E-Mail existiert bereits.')
+                return redirect(url_for('main.profile'))
+            current_user.email = email
 
         if password:
             current_user.set_password(password)
@@ -1393,6 +1417,7 @@ def new_user():
     if request.method == 'POST':
         username = request.form.get('username', '').strip()
         password = request.form.get('password', '').strip()
+        email = request.form.get('email', '').strip()
         name = request.form.get('name', '').strip()
         gender = request.form.get('gender', '').strip()
         bio = request.form.get('bio', '').strip()
@@ -1407,6 +1432,10 @@ def new_user():
         if User.query.filter_by(username=username).first():
             flash('Benutzername existiert bereits.')
             return redirect(url_for('main.new_user'))
+        
+        if email and User.query.filter_by(email=email).first():
+            flash('E-Mail existiert bereits.')
+            return redirect(url_for('main.new_user'))
 
         user = User(
             username=username,
@@ -1415,6 +1444,7 @@ def new_user():
             name=name,
             gender=gender,
             bio=bio,
+            email=email,
         )
         if file and file.filename:
             filename = secure_filename(file.filename)
@@ -1445,14 +1475,26 @@ def edit_user(user_id):
 
     if request.method == 'POST':
         password = request.form.get('password', '').strip()
+        email = request.form.get('email', '').strip()
         name = request.form.get('name', '').strip()
         gender = request.form.get('gender', '').strip()
         bio = request.form.get('bio', '').strip()
         file = request.files.get('profile_image')
-        user.is_admin = bool(request.form.get('is_admin'))
-        user.is_staff = bool(request.form.get('is_staff')) or user.is_admin
+        is_admin = bool(request.form.get('is_admin'))
+        user.is_staff = bool(request.form.get('is_staff')) or is_admin
+
+        if not is_admin and user.is_admin and User.query.filter_by(is_admin=True).count() <= 1:
+            flash('Mindestens ein Admin-Benutzer muss bestehen bleiben.')
+            return redirect(url_for('main.settings_users'))
+
+        user.is_admin = is_admin
         if password:
             user.set_password(password)
+        if email and email != user.email:
+            if User.query.filter_by(email=email).first():
+                flash('E-Mail existiert bereits.')
+                return redirect(url_for('main.edit_user', user_id=user.id))
+            user.email = email
         if name:
             user.name = name
         if gender:
@@ -1482,6 +1524,9 @@ def edit_user(user_id):
 @admin_required
 def delete_user(user_id):
     user = User.query.get_or_404(user_id)
+    if user.is_admin and User.query.filter_by(is_admin=True).count() <= 1:
+        flash('Mindestens ein Admin-Benutzer muss bestehen bleiben.')
+        return redirect(url_for('main.settings_users'))
     db.session.delete(user)
     db.session.commit()
     flash('Benutzer gelöscht')
