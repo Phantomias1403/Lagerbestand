@@ -16,7 +16,7 @@ import os
 from werkzeug.utils import secure_filename
 
 from . import db
-from .models import User, Article, Movement, Order, OrderItem, Category, EndingCategory
+from .models import User, Article, Movement, Order, OrderItem, Category, EndingCategory, Message
 from .utils import (
     get_setting,
     set_setting,
@@ -112,12 +112,10 @@ def select_profile():
 def login():
     if not user_management_enabled():
         return redirect(url_for('main.index'))
-    preselect_id = request.args.get('user_id')
+    preselect_id = request.args.get('user_id')    
+    preselect_user = None
     if preselect_id and preselect_id.isdigit():
-        user = User.query.get(int(preselect_id))
-        if user:
-            login_user(user)
-            return redirect(url_for('main.index'))
+        preselect_user = User.query.get(int(preselect_id))
     if request.method == 'POST':
         username = request.form['username']
         password = request.form['password']
@@ -126,7 +124,7 @@ def login():
             login_user(user)
             return redirect(url_for('main.index'))
         flash('Ungültige Anmeldung')
-    return render_template('login.html')
+    return render_template('login.html', preselect_user=preselect_user)
 
 
 @bp.route('/logout')
@@ -187,6 +185,11 @@ def profile():
 @login_optional
 def nils():
     return render_template('nils.html')
+
+@bp.route('/worker')
+@login_optional
+def worker():
+    return render_template('worker.html')
 
 @bp.route('/dick')
 @login_optional
@@ -315,6 +318,7 @@ def new_movement(article_id):
         flash('Bewegung erfasst')
         return redirect(url_for('main.article_history', article_id=article.id))
     return render_template('movement_form.html', article=article)
+
 
 
 @bp.route('/import', methods=['GET', 'POST'])
@@ -1482,3 +1486,32 @@ def delete_user(user_id):
     db.session.commit()
     flash('Benutzer gelöscht')
     return redirect(url_for('main.settings_users'))
+
+
+@bp.route('/social')
+@login_optional
+def social():
+    if not user_management_enabled():
+        return redirect(url_for('main.index'))
+    users = User.query.all()
+    return render_template('social.html', users=users)
+
+
+@bp.route('/social/<int:user_id>', methods=['GET', 'POST'])
+@login_optional
+def chat(user_id):
+    if not user_management_enabled():
+        return redirect(url_for('main.index'))
+    other = User.query.get_or_404(user_id)
+    if request.method == 'POST' and current_user.is_authenticated:
+        content = request.form.get('message', '').strip()
+        if content:
+            msg = Message(sender_id=current_user.id, receiver_id=other.id, content=content)
+            db.session.add(msg)
+            db.session.commit()
+            return redirect(url_for('main.chat', user_id=other.id))
+    messages = Message.query.filter(
+        ((Message.sender_id == current_user.id) & (Message.receiver_id == other.id)) |
+        ((Message.sender_id == other.id) & (Message.receiver_id == current_user.id))
+    ).order_by(Message.timestamp.asc()).all()
+    return render_template('chat.html', other=other, messages=messages)
