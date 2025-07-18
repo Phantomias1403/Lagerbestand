@@ -14,13 +14,26 @@ Dieses Projekt ist ein einfaches Lagerverwaltungssystem für Fanartikel basieren
    ```
 3. Im Browser `http://localhost:5000` öffnen.
 
-Die Benutzerverwaltung ist standardmäßig aktiviert. Momentan kann man sie
-nicht deaktivieren.
+Die Benutzerverwaltung ist standardmäßig aktiviert. Momentan kann man
+sie nicht deaktivieren.
 Beim ersten Start mit aktivierter Benutzerverwaltung wird automatisch ein
 Admin-Benutzer `admin` mit Passwort `admin` angelegt.
 
 Angemeldete Benutzer können ihr Profil unter "Profil" bearbeiten und dort
 Benutzername sowie Passwort ändern.
+
+### Passwort-Reset per E-Mail
+Um das Zurücksetzen des Passworts zu ermöglichen, muss ein SMTP-Server
+konfiguriert sein. Die Anwendung liest dazu folgende Umgebungsvariablen:
+
+* `MAIL_SERVER` – Adresse des SMTP-Servers (Standard: `localhost`)
+* `MAIL_PORT` – Port des Servers (Standard: `25`)
+* `MAIL_USERNAME` – Benutzername für die Anmeldung (optional)
+* `MAIL_PASSWORD` – Passwort für die Anmeldung (optional)
+* `MAIL_SENDER` – Absenderadresse der E-Mails
+
+Nach Einrichtung kann über den Link "Passwort vergessen?" auf der Login-Seite
+eine E-Mail mit einem Zurücksetz-Link angefordert werden.
 
 
 Jeder Artikel besitzt nun einen optionalen Mindestbestand. Im Dashboard wird
