@@ -14,7 +14,9 @@ class User(UserMixin, db.Model):
     name = db.Column(db.String(120))
     gender = db.Column(db.String(20))
     bio = db.Column(db.String(500))
-    profile_image = db.Column(db.String(200)) 
+    profile_image = db.Column(db.String(200))
+
+    logs = db.relationship('ActivityLog', backref='user', lazy=True)
 
     def has_staff_rights(self):
         return self.is_admin or self.is_staff
@@ -111,3 +113,10 @@ class Message(db.Model):
 
     sender = db.relationship('User', foreign_keys=[sender_id])
     receiver = db.relationship('User', foreign_keys=[receiver_id])
+
+    
+class ActivityLog(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    action = db.Column(db.String(255), nullable=False)
+    timestamp = db.Column(db.DateTime, default=datetime.utcnow)
