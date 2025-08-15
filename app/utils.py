@@ -163,8 +163,8 @@ def verify_reset_token(token: str, max_age: int = 3600) -> int | None:
 
 def send_email(to: str, subject: str, body: str) -> None:
     """Send a plain text email using SMTP settings from the Flask config."""
-    server = current_app.config.get('MAIL_SERVER', 'localhost')
-    port = int(current_app.config.get('MAIL_PORT', 25))
+    server = current_app.config.get('MAIL_SERVER', 'smtp.gmail.com')
+    port = int(current_app.config.get('MAIL_PORT', 587))
     username = current_app.config.get('MAIL_USERNAME')
     password = current_app.config.get('MAIL_PASSWORD')
     sender = current_app.config.get('MAIL_SENDER', username)
