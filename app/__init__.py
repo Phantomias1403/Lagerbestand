@@ -2,6 +2,8 @@ import os
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager
+from dotenv import load_dotenv
+load_dotenv()
 
 db = SQLAlchemy()
 login_manager = LoginManager()
@@ -15,14 +17,17 @@ def create_app():
     app.config['PROFILE_IMAGE_FOLDER'] = os.path.join(app.static_folder, 'profile_pics')
     os.makedirs(app.config['PROFILE_IMAGE_FOLDER'], exist_ok=True)
 
-    # SMTP configuration for password reset emails
-    app.config['MAIL_SERVER'] = os.environ.get('MAIL_SERVER', 'localhost')
-    app.config['MAIL_PORT'] = int(os.environ.get('MAIL_PORT', 25))
+    # SMTP configuration for password reset emails (defaults to Gmail)
+    app.config['MAIL_SERVER'] = os.environ.get('MAIL_SERVER', 'smtp.gmail.com')
+    app.config['MAIL_PORT'] = int(os.environ.get('MAIL_PORT', 587))
     app.config['MAIL_USERNAME'] = os.environ.get('MAIL_USERNAME')
     app.config['MAIL_PASSWORD'] = os.environ.get('MAIL_PASSWORD')
     app.config['MAIL_SENDER'] = os.environ.get('MAIL_SENDER', app.config.get('MAIL_USERNAME'))
-    app.config['MAIL_USE_TLS'] = os.environ.get('MAIL_USE_TLS', '0') == '1'
-    app.config['MAIL_USE_SSL'] = os.environ.get('MAIL_USE_SSL', '0') == '1'
+    # TLS/SSL can be overridden via environment, otherwise decide based on port
+    if 'MAIL_USE_TLS' in os.environ:
+        app.config['MAIL_USE_TLS'] = os.environ.get('MAIL_USE_TLS') == '1'
+    if 'MAIL_USE_SSL' in os.environ:
+        app.config['MAIL_USE_SSL'] = os.environ.get('MAIL_USE_SSL') == '1'
 
     # Benutzerverwaltung aktivieren über Umgebungsvariable ENABLE_USER_MANAGEMENT (default = aktiviert)
     app.config['ENABLE_USER_MANAGEMENT'] = os.environ.get('ENABLE_USER_MANAGEMENT', '1') == '1'
