@@ -9,6 +9,7 @@ from flask import (
     render_template,
     request,
     url_for,
+    g,
 )
 from flask_login import current_user, login_required, login_user, logout_user
 from sqlalchemy import func
@@ -78,10 +79,16 @@ bp = Blueprint('main', __name__)
 def inject_config():
     return dict(enable_user_management=user_management_enabled())
 
+def log_activity(action: str) -> None:
+    """Store an action to be logged after the request finishes."""
+    if current_user.is_authenticated:
+        g.log_action = action
+
+
 @bp.after_app_request
 def log_user_action(response):
-    if current_user.is_authenticated and not request.path.startswith('/static'):
-        action = f"{request.method} {request.path}"
+    action = getattr(g, 'log_action', None)
+    if current_user.is_authenticated and action:
         db.session.add(ActivityLog(user_id=current_user.id, action=action))
         db.session.commit()
     return response
@@ -183,6 +190,7 @@ def reset_password_token(token):
         if password:
             user.set_password(password)
             db.session.commit()
+            log_activity('Passwort zurückgesetzt')            
             flash('Passwort wurde zurückgesetzt')
             return redirect(url_for('main.login'))
         flash('Ungültige Daten')
@@ -244,6 +252,7 @@ def profile():
 
 
         db.session.commit()
+        log_activity('Profil aktualisiert')        
         flash('Profil aktualisiert')
         return redirect(url_for('main.profile'))
 
@@ -312,6 +321,7 @@ def new_article():
             article.price = p or 0.0
         db.session.add(article)
         db.session.commit()
+        log_activity(f'Artikel {article.sku} erstellt')        
         flash('Artikel erstellt')
         return redirect(url_for('main.index'))
 
@@ -344,6 +354,7 @@ def edit_article(article_id):
                 pass
         article.image = request.form.get('image')
         db.session.commit()
+        log_activity(f'Artikel {article.sku} aktualisiert')        
         flash('Artikel aktualisiert')
         return redirect(url_for('main.index'))
     categories = get_categories()
@@ -357,6 +368,7 @@ def delete_article(article_id):
     article = Article.query.get_or_404(article_id)
     db.session.delete(article)
     db.session.commit()
+    log_activity(f'Artikel {article.sku} gelöscht')    
     flash('Artikel gelöscht')
     return redirect(url_for('main.index'))
 
@@ -381,6 +393,7 @@ def new_movement(article_id):
         article.stock += qty
         db.session.add(movement)
         db.session.commit()
+        log_activity(f'Bewegung {mtype} {qty} für {article.sku}')        
         if article.stock < article.minimum_stock:
             flash('Bestand unter Mindestbestand!')
         flash('Bewegung erfasst')
@@ -479,6 +492,7 @@ def import_csv():
                 article.minimum_stock = get_default_minimum_stock(article.category)
 
         db.session.commit()
+        log_activity('CSV-Import durchgeführt')        
         flash('Import abgeschlossen')
         return redirect(url_for('main.index'))
 
@@ -801,6 +815,7 @@ def backup_import():
 
 
         db.session.commit()
+        log_activity('Backup importiert')        
         flash('Backup importiert')
         return redirect(url_for('main.index'))
 
@@ -997,6 +1012,7 @@ def inventory():
 
             if adjusted:
                 db.session.commit()
+                log_activity(f'Inventur-CSV importiert – {adjusted} Artikel angepasst')                
                 flash(f'CSV-Import abgeschlossen – {adjusted} Artikel angepasst.')
             else:
                 flash('CSV-Import abgeschlossen – Keine passenden Artikel gefunden.')
@@ -1155,6 +1171,7 @@ def new_order():
         for m in movements:
             db.session.add(m)
         db.session.commit()
+        log_activity(f'Bestellung {order.id} angelegt')        
         flash('Bestellung angelegt')
         return redirect(url_for('main.order_detail', order_id=order.id))
     return render_template('order_form.html', articles=articles, statuses=statuses,
@@ -1174,6 +1191,7 @@ def edit_order(order_id):
         order.customer_address = f"{street}\n{city_zip}" if street or city_zip else None
         order.status = request.form['status']
         db.session.commit()
+        log_activity(f'Bestellung {order.id} aktualisiert')        
         flash('Bestellung aktualisiert')
         return redirect(url_for('main.order_detail', order_id=order.id))
     street = ''
@@ -1234,12 +1252,14 @@ def settings_cleanup():
         OrderItem.query.delete()
         Order.query.delete()
         db.session.commit()
+        log_activity('Alle Bestellungen gelöscht')        
         flash('Alle Bestellungen gelöscht.')
     elif option == 'articles':
         Movement.query.delete()
         OrderItem.query.delete()
         Article.query.delete()
         db.session.commit()
+        log_activity('Alle Artikel gelöscht')        
         flash('Alle Artikel gelöscht.')
     elif option == 'all':
         Movement.query.delete()
@@ -1248,6 +1268,7 @@ def settings_cleanup():
         Article.query.delete()
         Category.query.delete()
         db.session.commit()
+        log_activity('Datenbank bereinigt')        
         flash('Datenbank bereinigt.')
     else:
         flash('Keine gültige Option ausgewählt.')
@@ -1288,6 +1309,7 @@ def add_category():
                 default_min_stock=minimum,
             ))
             db.session.commit()
+            log_activity(f'Kategorie {name} hinzugefügt')            
             flash('Kategorie hinzugefügt')
     return redirect(url_for('main.settings_categories'))
 
@@ -1317,6 +1339,7 @@ def edit_category(category_id):
         except ValueError:
             pass
         db.session.commit()
+        log_activity(f'Kategorie {category.name} aktualisiert')        
         flash('Kategorie aktualisiert')
         return redirect(url_for('main.settings_categories'))
     return render_template('category_form.html', category=category)
@@ -1332,6 +1355,7 @@ def apply_category_defaults(category_id):
         'minimum_stock': category.default_min_stock,
     })
     db.session.commit()
+    log_activity(f'Standardwerte für Kategorie {category.name} angewendet')    
     flash('Standardwerte auf Artikel angewendet')
     return redirect(url_for('main.settings_categories'))
 
@@ -1350,6 +1374,7 @@ def delete_category(category_id):
     else:
         db.session.delete(category)
         db.session.commit()
+        log_activity(f'Kategorie {category.name} gelöscht')        
         flash('Kategorie gelöscht')
     return redirect(url_for('main.settings_categories'))
 
@@ -1381,6 +1406,7 @@ def add_ending():
             multiplier = 1
         db.session.add(EndingCategory(suffix=suffix, category=category, price=price, csv_multiplier=multiplier))
         db.session.commit()
+        log_activity(f'Endung {suffix} hinzugefügt')        
         flash('Endung hinzugefügt')
     return redirect(url_for('main.settings_endings'))
 
@@ -1408,6 +1434,7 @@ def edit_ending(ending_id):
         except ValueError:
             pass
         db.session.commit()
+        log_activity(f'Endung {ending.suffix} aktualisiert')        
         flash('Endung aktualisiert')
         return redirect(url_for('main.settings_endings'))
     categories = get_categories()
@@ -1428,6 +1455,7 @@ def apply_ending_price(ending_id):
             Article.sku.like(f"%{ending.suffix}")
         ).update({'price': price})
         db.session.commit()
+        log_activity(f'Preis-Endung {ending.suffix} angewendet')        
         flash('Preis auf Artikel angewendet')
     return redirect(url_for('main.settings_endings'))
 
@@ -1440,6 +1468,7 @@ def delete_ending(ending_id):
     ending = EndingCategory.query.get_or_404(ending_id)
     db.session.delete(ending)
     db.session.commit()
+    log_activity(f'Endung {ending.suffix} gelöscht')    
     flash('Endung gelöscht')
     return redirect(url_for('main.settings_endings'))
 
@@ -1521,6 +1550,7 @@ def new_user():
         user.set_password(password)
         db.session.add(user)
         db.session.commit()
+        log_activity(f'Benutzer {user.username} angelegt')        
         flash('Benutzer angelegt')
         return redirect(url_for('main.settings_users'))
 
@@ -1573,6 +1603,7 @@ def edit_user(user_id):
             file.save(path)
             user.profile_image = f"profile_pics/{filename}"
         db.session.commit()
+        log_activity(f'Benutzer {user.username} aktualisiert')        
         flash('Benutzer aktualisiert')
         return redirect(url_for('main.settings_users'))
 
@@ -1589,6 +1620,7 @@ def delete_user(user_id):
         return redirect(url_for('main.settings_users'))
     db.session.delete(user)
     db.session.commit()
+    log_activity(f'Benutzer {user.username} gelöscht')    
     flash('Benutzer gelöscht')
     return redirect(url_for('main.settings_users'))
 
@@ -1614,6 +1646,7 @@ def chat(user_id):
             msg = Message(sender_id=current_user.id, receiver_id=other.id, content=content)
             db.session.add(msg)
             db.session.commit()
+            log_activity(f'Nachricht an {other.username} gesendet')            
             return redirect(url_for('main.chat', user_id=other.id))
     messages = Message.query.filter(
         ((Message.sender_id == current_user.id) & (Message.receiver_id == other.id)) |
