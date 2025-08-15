@@ -16,7 +16,7 @@ import os
 from werkzeug.utils import secure_filename
 
 from . import db
-from .models import User, Article, Movement, Order, OrderItem, Category, EndingCategory, Message
+from .models import User, Article, Movement, Order, OrderItem, Category, EndingCategory, Message, ActivityLog
 from .utils import (
     get_setting,
     set_setting,
@@ -77,6 +77,16 @@ bp = Blueprint('main', __name__)
 @bp.app_context_processor
 def inject_config():
     return dict(enable_user_management=user_management_enabled())
+
+@bp.after_app_request
+def log_user_action(response):
+    if current_user.is_authenticated and not request.path.startswith('/static'):
+        action = f"{request.method} {request.path}"
+        db.session.add(ActivityLog(user_id=current_user.id, action=action))
+        db.session.commit()
+    return response
+
+
 
 
 @bp.route('/')
@@ -1432,6 +1442,22 @@ def delete_ending(ending_id):
     db.session.commit()
     flash('Endung gelöscht')
     return redirect(url_for('main.settings_endings'))
+
+
+# Aktivitäts-Log -------------------------------------------------------------
+
+@bp.route('/settings/logs')
+@login_optional
+@admin_required
+def settings_logs():
+    user_id = request.args.get('user_id', type=int)
+    users = User.query.all()
+    query = ActivityLog.query.order_by(ActivityLog.timestamp.desc())
+    if user_id:
+        query = query.filter_by(user_id=user_id)
+    logs = query.limit(100).all()
+    return render_template('settings_logs.html', logs=logs, users=users, selected_user_id=user_id)
+
 
 
 # Benutzerverwaltung ---------------------------------------------------------
