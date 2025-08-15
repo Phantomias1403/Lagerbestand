@@ -8,6 +8,9 @@ Dieses Projekt ist ein einfaches Lagerverwaltungssystem für Fanartikel basieren
    ```bash
    pip install flask flask_sqlalchemy flask_login werkzeug fpdf
    ```
+   ```bash
+   pip install python-dotenv
+   ```
 2. Anwendung starten:
    ```bash
    python run.py
@@ -37,6 +40,7 @@ Umgebungsvariablen gesetzt werden:
 TLS bzw. SSL wird abhängig vom Port automatisch gewählt. Bei Bedarf kann
 dies über die optionalen Variablen `MAIL_USE_TLS` bzw. `MAIL_USE_SSL`
 überschrieben werden ("1" für aktiv).
+Die Umgebungsvariablen werden in der .env Datei festgelegt.
 
 Nach Einrichtung kann über den Link "Passwort vergessen?" auf der Login-Seite
 eine E-Mail mit einem Zurücksetz-Link angefordert werden.
