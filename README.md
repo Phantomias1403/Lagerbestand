@@ -24,15 +24,19 @@ Benutzername sowie Passwort ändern.
 
 ### Passwort-Reset per E-Mail
 Um das Zurücksetzen des Passworts zu ermöglichen, muss ein SMTP-Server
-konfiguriert sein. Die Anwendung liest dazu folgende Umgebungsvariablen:
+konfiguriert sein. Standardmäßig wird der Gmail‑Server `smtp.gmail.com`
+über Port `587` mit TLS verwendet. Es müssen lediglich folgende
+Umgebungsvariablen gesetzt werden:
 
-* `MAIL_SERVER` – Adresse des SMTP-Servers (Standard: `localhost`)
-* `MAIL_PORT` – Port des Servers (Standard: `25`)
-* `MAIL_USERNAME` – Benutzername für die Anmeldung (optional)
-* `MAIL_PASSWORD` – Passwort für die Anmeldung (optional)
-* `MAIL_SENDER` – Absenderadresse der E-Mails
-* `MAIL_USE_TLS` – TLS-Verbindung verwenden ("1" für aktiv)
-* `MAIL_USE_SSL` – SSL-Verbindung verwenden ("1" für aktiv)
+* `MAIL_SERVER` – Adresse des SMTP-Servers (Standard: `smtp.gmail.com`)
+* `MAIL_PORT` – Port des Servers (Standard: `587`)
+* `MAIL_USERNAME` – Benutzername für die Anmeldung
+* `MAIL_PASSWORD` – Passwort für die Anmeldung
+* `MAIL_SENDER` – Absenderadresse der E-Mails (Standard: wie `MAIL_USERNAME`)
+
+TLS bzw. SSL wird abhängig vom Port automatisch gewählt. Bei Bedarf kann
+dies über die optionalen Variablen `MAIL_USE_TLS` bzw. `MAIL_USE_SSL`
+überschrieben werden ("1" für aktiv).
 
 Nach Einrichtung kann über den Link "Passwort vergessen?" auf der Login-Seite
 eine E-Mail mit einem Zurücksetz-Link angefordert werden.
