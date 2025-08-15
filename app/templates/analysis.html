@@ -1,23 +1,25 @@
 {% extends 'layout.html' %}
 {% block content %}
 <h1>Analyse</h1>
-<div class="mb-3">
-  <a href="{{ url_for('main.analysis', sort='revenue') }}" class="btn btn-primary{% if sort=='revenue' %} active{% endif %}">Nach Umsatz</a>
-  <a href="{{ url_for('main.analysis', sort='quantity') }}" class="btn btn-primary{% if sort=='quantity' %} active{% endif %}">Nach Anzahl</a>
-</div>
-<div class="table-responsive">
-<table class="table table-striped">
-  <thead><tr><th>Rang</th><th>Artikel</th><th>Menge</th><th>Umsatz (€)</th></tr></thead>
-  <tbody>
-  {% for item in data %}
-  <tr>
-    <td>{{ loop.index }}</td>
-    <td>{{ item.name }}</td>
-    <td>{{ item.quantity }}</td>
-    <td>{{ '%.2f'|format(item.revenue) }}</td>
-  </tr>
-  {% endfor %}
-  </tbody>
-</table>
-</div>
+  <div class="mb-3">
+    <a href="{{ url_for('main.analysis', sort='revenue') }}" class="btn btn-primary{% if sort=='revenue' %} active{% endif %}">Nach Umsatz</a>
+    <a href="{{ url_for('main.analysis', sort='quantity') }}" class="btn btn-primary{% if sort=='quantity' %} active{% endif %}">Nach Anzahl</a>
+    <a href="{{ url_for('main.analysis', sort='date') }}" class="btn btn-primary{% if sort=='date' %} active{% endif %}">Nach Datum</a>
+  </div>
+  <div class="table-responsive">
+  <table class="table table-striped">
+    <thead><tr><th>Rang</th><th>Artikel</th><th>Menge</th><th>Umsatz (€)</th><th>Letzte Bestellung</th></tr></thead>
+    <tbody>
+    {% for item in data %}
+    <tr>
+      <td>{{ loop.index }}</td>
+      <td>{{ item.name }}</td>
+      <td>{{ item.quantity }}</td>
+      <td>{{ '%.2f'|format(item.revenue) }}</td>
+      <td>{{ item.last_date.strftime('%Y-%m-%d') if item.last_date else '' }}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
 {% endblock %}
