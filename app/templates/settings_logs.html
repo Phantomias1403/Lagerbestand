@@ -1,0 +1,31 @@
+{% extends 'settings_base.html' %}
+{% set active_tab = 'logs' %}
+{% block settings_content %}
+<form method="get" class="mb-3">
+  <label for="user_id" class="form-label">Benutzer</label>
+  <select name="user_id" id="user_id" class="form-select" onchange="this.form.submit()">
+    <option value="">Alle</option>
+    {% for u in users %}
+      <option value="{{ u.id }}" {% if selected_user_id==u.id %}selected{% endif %}>{{ u.username }}</option>
+    {% endfor %}
+  </select>
+</form>
+<table class="table">
+  <thead>
+    <tr>
+      <th>Zeit</th>
+      <th>Benutzer</th>
+      <th>Aktion</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for log in logs %}
+    <tr>
+      <td>{{ log.timestamp }}</td>
+      <td>{{ log.user.username }}</td>
+      <td>{{ log.action }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}
