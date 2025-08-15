@@ -840,6 +840,7 @@ def analysis():
             Article.name.label('name'),
             func.sum(OrderItem.quantity).label('quantity'),
             func.sum(OrderItem.quantity * OrderItem.unit_price).label('revenue'),
+            func.max(Order.created_at).label('last_date'),            
         )
         .join(OrderItem, Article.id == OrderItem.article_id)
         .join(Order, Order.id == OrderItem.order_id)
@@ -849,6 +850,8 @@ def analysis():
     )
     if sort == 'quantity':
         results.sort(key=lambda r: r.quantity or 0, reverse=True)
+    elif sort == 'date':
+        results.sort(key=lambda r: r.last_date or datetime.min, reverse=True)        
     else:
         results.sort(key=lambda r: r.revenue or 0, reverse=True)
     return render_template('analysis.html', data=results, sort=sort)
