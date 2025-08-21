@@ -390,9 +390,6 @@ def new_movement(article_id):
         note = request.form.get('note')
         mtype = request.form.get('type', 'Wareneingang')
         invoice = request.form.get('invoice_number', '').strip()
-        if invoice and Movement.query.filter_by(invoice_number=invoice).first():
-            flash('Rechnungsnummer existiert bereits')
-            return redirect(url_for('main.new_movement', article_id=article.id))
         movement = Movement(article_id=article.id, quantity=qty, note=note, type=mtype, invoice_number=invoice or None)
         article.stock += qty
         db.session.add(movement)
@@ -778,6 +775,9 @@ def backup_import():
             if not r.fieldnames or not fields.issubset(set(r.fieldnames)):
                 flash('Ungültiges Format der Invoice-Movements-Datei')
                 return redirect(url_for('main.backup_import'))
+            existing_invoices = {
+                m.invoice_number for m in Movement.query.filter(Movement.invoice_number != None).all()
+            }            
             from datetime import datetime
             for row in r:
                 sku = (row.get('article_sku') or '').strip()
@@ -796,7 +796,7 @@ def backup_import():
                 except ValueError:
                     ts = datetime.utcnow()
                 inv = (row.get('invoice_number') or '').strip()
-                if inv and Movement.query.filter_by(invoice_number=inv).first():
+                if inv and inv in existing_invoices:
                     continue
                 m = Movement(
                     article_id=article.id,
@@ -940,6 +940,10 @@ def inventory():
                 flash('Erforderliche Spalten fehlen.')
                 return redirect(url_for('main.inventory'))
 
+            existing_invoices = {
+                m.invoice_number for m in Movement.query.filter(Movement.invoice_number != None).all()
+            }
+
             try:
                 for row in reader:
                     sku = row.get('Posten: Artikelnummer', '').strip()
@@ -976,7 +980,7 @@ def inventory():
                     if multiplier and multiplier != 1:
                         current_app.logger.info(f"[IMPORT] Multiplier f\u00fcr Sticker/Endung: {multiplier}")
                         qty *= multiplier
-                    if invoice and Movement.query.filter_by(invoice_number=invoice).first():
+                    if invoice and invoice in existing_invoices:
                         flash(f'Rechnungsnummer {invoice} existiert bereits, Zeile übersprungen.')
                         continue
                     
