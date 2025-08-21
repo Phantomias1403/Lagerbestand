@@ -17,7 +17,7 @@ import os
 from werkzeug.utils import secure_filename
 
 from . import db
-from .models import User, Article, Movement, Order, OrderItem, Category, EndingCategory, Message, ActivityLog
+from .models import User, Article, Movement, Order, OrderItem, Category, EndingCategory, Message, ActivityLog, Setting
 from .utils import (
     get_setting,
     set_setting,
@@ -515,90 +515,139 @@ def export_articles():
     return Response(output, mimetype='text/csv', headers={'Content-Disposition': 'attachment;filename=articles.csv'})
 
 
-@bp.route('/backup/export')
+@bp.route('/settings/backup/export', methods=['POST'])
 @login_optional
-def backup_export():
-    
-    """Export all articles and orders as a ZIP archive."""
+@admin_required
+def settings_backup_export():
+
+    """Export selected parts of the database as a ZIP archive."""
     import zipfile
     from io import BytesIO
 
-    # Articles -------------------------------------------------------------
-    si = StringIO()
-    writer = csv.writer(si)
-    writer.writerow([
-        'sku', 'name', 'category', 'stock', 'minimum_stock',
-        'location_primary', 'location_secondary', 'image', 'price'
-    ])
-    for a in Article.query.all():
-        writer.writerow([
-            a.sku or '',
-            a.name or '',
-            a.category or '',
-            a.stock if a.stock is not None else 0,
-            a.minimum_stock if a.minimum_stock is not None else 0,
-            a.location_primary or '',
-            a.location_secondary or '',
-            a.image or '',
-            f"{a.price:.2f}" if a.price is not None else ''
-        ])
-    articles_csv = si.getvalue().encode('utf-8')
+    include_articles = 'articles' in request.form
+    include_orders = 'orders' in request.form
+    include_settings_part = 'settings' in request.form
 
-    # Orders ---------------------------------------------------------------
-    si = StringIO()
-    writer = csv.writer(si)
-    writer.writerow(['id', 'customer_name', 'customer_address', 'status', 'created_at'])
-    for o in Order.query.all():
-        writer.writerow([
-            o.id,
-            o.customer_name or '',
-            o.customer_address or '',
-            o.status or '',
-            o.created_at.isoformat() if o.created_at else ''
-        ])
-    orders_csv = si.getvalue().encode('utf-8')
-
-    # Order items ----------------------------------------------------------
-    si = StringIO()
-    writer = csv.writer(si)
-    writer.writerow(['order_id', 'article_sku', 'quantity', 'unit_price'])
-    for item in OrderItem.query.all():
-        writer.writerow([
-            item.order_id,
-            item.article.sku if item.article else '',
-            item.quantity,
-            f"{item.unit_price:.2f}"
-        ])
-    items_csv = si.getvalue().encode('utf-8')
-
-    
-    # Invoice movements ----------------------------------------------------
-    si = StringIO()
-    writer = csv.writer(si)
-    writer.writerow([
-        'article_sku', 'article_name', 'quantity',
-        'type', 'note', 'timestamp', 'invoice_number'
-    ])
-    for m in Movement.query.filter(Movement.invoice_number != None).all():
-        writer.writerow([
-            m.article.sku if m.article else '',
-            m.article.name if m.article else '',
-            m.quantity,
-            m.type,
-            m.note or '',
-            m.timestamp.isoformat() if m.timestamp else '',
-            m.invoice_number or ''
-        ])
-    invoices_csv = si.getvalue().encode('utf-8')
-
-
-    # Build ZIP ------------------------------------------------------------
     mem = BytesIO()
     with zipfile.ZipFile(mem, 'w', zipfile.ZIP_DEFLATED) as zf:
-        zf.writestr('articles.csv', articles_csv)
-        zf.writestr('orders.csv', orders_csv)
-        zf.writestr('order_items.csv', items_csv)
-        zf.writestr('invoice_movements.csv', invoices_csv)
+        if include_articles:
+            si = StringIO()
+            writer = csv.writer(si)
+            writer.writerow([
+                'sku', 'name', 'category', 'stock', 'minimum_stock',
+                'location_primary', 'location_secondary', 'image', 'price'
+            ])
+            for a in Article.query.all():
+                writer.writerow([
+                    a.sku or '',
+                    a.name or '',
+                    a.category or '',
+                    a.stock if a.stock is not None else 0,
+                    a.minimum_stock if a.minimum_stock is not None else 0,
+                    a.location_primary or '',
+                    a.location_secondary or '',
+                    a.image or '',
+                    f"{a.price:.2f}" if a.price is not None else ''
+                ])
+            zf.writestr('articles.csv', si.getvalue().encode('utf-8'))
+
+        if include_orders:
+            si = StringIO()
+            writer = csv.writer(si)
+            writer.writerow(['id', 'customer_name', 'customer_address', 'status', 'created_at'])
+            for o in Order.query.all():
+                writer.writerow([
+                    o.id,
+                    o.customer_name or '',
+                    o.customer_address or '',
+                    o.status or '',
+                    o.created_at.isoformat() if o.created_at else ''
+                ])
+            zf.writestr('orders.csv', si.getvalue().encode('utf-8'))
+
+            si = StringIO()
+            writer = csv.writer(si)
+            writer.writerow(['order_id', 'article_sku', 'quantity', 'unit_price'])
+            for item in OrderItem.query.all():
+                writer.writerow([
+                    item.order_id,
+                    item.article.sku if item.article else '',
+                    item.quantity,
+                    f"{item.unit_price:.2f}"
+                ])
+            zf.writestr('order_items.csv', si.getvalue().encode('utf-8'))
+
+            si = StringIO()
+            writer = csv.writer(si)
+            writer.writerow([
+                'article_sku', 'article_name', 'quantity',
+                'type', 'note', 'timestamp', 'invoice_number'
+            ])
+            for m in Movement.query.filter(Movement.invoice_number != None).all():
+                writer.writerow([
+                    m.article.sku if m.article else '',
+                    m.article.name if m.article else '',
+                    m.quantity,
+                    m.type,
+                    m.note or '',
+                    m.timestamp.isoformat() if m.timestamp else '',
+                    m.invoice_number or ''
+                ])
+            zf.writestr('invoice_movements.csv', si.getvalue().encode('utf-8'))
+
+        if include_settings_part:
+            si = StringIO()
+            writer = csv.writer(si)
+            writer.writerow(['key', 'value'])
+            for s in Setting.query.all():
+                writer.writerow([s.key, s.value])
+            zf.writestr('settings.csv', si.getvalue().encode('utf-8'))
+
+            si = StringIO()
+            writer = csv.writer(si)
+            writer.writerow(['name', 'prefix', 'default_price', 'default_min_stock'])
+            for c in Category.query.all():
+                writer.writerow([
+                    c.name,
+                    c.prefix or '',
+                    f"{c.default_price:.2f}" if c.default_price is not None else '0',
+                    c.default_min_stock or 0,
+                ])
+            zf.writestr('categories.csv', si.getvalue().encode('utf-8'))
+
+            si = StringIO()
+            writer = csv.writer(si)
+            writer.writerow(['category', 'suffix', 'price', 'csv_multiplier'])
+            for e in EndingCategory.query.all():
+                writer.writerow([
+                    e.category or '',
+                    e.suffix or '',
+                    f"{e.price:.2f}" if e.price is not None else '0',
+                    e.csv_multiplier or 1,
+                ])
+            zf.writestr('endings.csv', si.getvalue().encode('utf-8'))
+
+            si = StringIO()
+            writer = csv.writer(si)
+            writer.writerow([
+                'id', 'username', 'email', 'password_hash',
+                'is_admin', 'is_staff', 'name', 'gender', 'bio', 'profile_image'
+            ])
+            for u in User.query.all():
+                writer.writerow([
+                    u.id,
+                    u.username,
+                    u.email or '',
+                    u.password_hash,
+                    1 if u.is_admin else 0,
+                    1 if u.is_staff else 0,
+                    u.name or '',
+                    u.gender or '',
+                    u.bio or '',
+                    u.profile_image or '',
+                ])
+            zf.writestr('users.csv', si.getvalue().encode('utf-8'))
+
     mem.seek(0)
     return Response(
         mem.read(),
@@ -607,20 +656,21 @@ def backup_export():
     )
 
 
-@bp.route('/backup/import', methods=['GET', 'POST'])
+@bp.route('/settings/backup', methods=['GET', 'POST'])
 @login_optional
 @admin_required
-def backup_import():
-    """Restore articles and orders from a backup ZIP or CSV file."""
+def settings_backup():
+    """Import selected parts of a backup ZIP file."""
     if request.method == 'POST':
         file = request.files.get('file')
         if not file or not file.filename:
             flash('Keine Datei ausgewählt')
-            return redirect(url_for('main.backup_import'))
+            return redirect(url_for('main.settings_backup'))
         
         import zipfile
         from io import BytesIO
         raw = file.read()
+
         def decode_bytes(data: bytes) -> str | None:
             for enc in ('utf-8-sig', 'latin1'):
                 try:
@@ -628,85 +678,81 @@ def backup_import():
                 except UnicodeDecodeError:
                     continue
             return None
-
-        articles_text = None
-        orders_text = None
-        items_text = None
-        invoices_text = None
+        
+        texts = {}
 
         if zipfile.is_zipfile(BytesIO(raw)):
             with zipfile.ZipFile(BytesIO(raw)) as zf:
-                try:
-                    articles_text = decode_bytes(zf.read('articles.csv'))
-                    orders_text = decode_bytes(zf.read('orders.csv'))
-                    items_text = decode_bytes(zf.read('order_items.csv'))
+                for name in (
+                    'articles.csv', 'orders.csv', 'order_items.csv', 'invoice_movements.csv',
+                    'settings.csv', 'categories.csv', 'endings.csv', 'users.csv'
+                ):
                     try:
-                        invoices_text = decode_bytes(
-                            zf.read('invoice_movements.csv')
-                        )
+                        texts[name] = decode_bytes(zf.read(name))
                     except KeyError:
-                        invoices_text = None
-                except KeyError:
-                    flash('Backup-Datei unvollständig')
-                    return redirect(url_for('main.backup_import'))
+                        texts[name] = None                        
         else:
-            articles_text = decode_bytes(raw)
+                        texts['articles.csv'] = decode_bytes(raw)
 
-        if articles_text is None:
-            flash('Datei konnte nicht gelesen werden.')
-            return redirect(url_for('main.backup_import'))
+        articles_text = texts.get('articles.csv')
+        orders_text = texts.get('orders.csv')
+        items_text = texts.get('order_items.csv')
+        invoices_text = texts.get('invoice_movements.csv')
+        settings_text = texts.get('settings.csv')
+        categories_text = texts.get('categories.csv')
+        endings_text = texts.get('endings.csv')
+        users_text = texts.get('users.csv')
 
-        reader = csv.DictReader(StringIO(articles_text))
-        required = {
-            'sku', 'name', 'category', 'stock', 'minimum_stock',
-            'location_primary', 'location_secondary', 'image', 'price'
-        }
-        if not reader.fieldnames or not required.issubset(set(reader.fieldnames)):
-            flash('Ungültiges Format der Backup-Datei')
-            return redirect(url_for('main.backup_import'))
+        if not any(texts.values()):
+            flash('Backup-Datei enthält keine bekannten Daten.')
+            return redirect(url_for('main.settings_backup'))
 
-        for row in reader:
-            sku = (row.get('sku') or '').strip()
-            if not sku:
-                continue
-            article = Article.query.filter_by(sku=sku).first()
-            if not article:
-                article = Article(sku=sku)
-                db.session.add(article)
-
-            article.name = row.get('name') or ''
-            article.category = (row.get('category') or 'Sticker').strip() or 'Sticker'
-
-            try:
-                article.stock = int(row.get('stock') or 0)
-            except ValueError:
-                article.stock = 0
-
-            try:
-                article.minimum_stock = int(row.get('minimum_stock') or 0)
-            except ValueError:
-                article.minimum_stock = 0
-
-            article.location_primary = row.get('location_primary') or ''
-            article.location_secondary = row.get('location_secondary') or ''
-            article.image = row.get('image') or ''
-
-            price_raw = row.get('price', '').strip()
-            if price_raw:
+        # Articles ---------------------------------------------------------
+        if articles_text:
+            reader = csv.DictReader(StringIO(articles_text))
+            required = {
+                'sku', 'name', 'category', 'stock', 'minimum_stock',
+                'location_primary', 'location_secondary', 'image', 'price'
+            }
+            if not reader.fieldnames or not required.issubset(set(reader.fieldnames)):
+                flash('Ungültiges Format der Artikel-Datei')
+                return redirect(url_for('main.settings_backup'))
+            for row in reader:
+                sku = (row.get('sku') or '').strip()
+                if not sku:
+                    continue
+                article = Article.query.filter_by(sku=sku).first()
+                if not article:
+                    article = Article(sku=sku)
+                    db.session.add(article)
+                article.name = row.get('name') or ''
+                article.category = (row.get('category') or 'Sticker').strip() or 'Sticker'
                 try:
-                    article.price = float(price_raw.replace(',', '.'))
+                    article.stock = int(row.get('stock') or 0)
                 except ValueError:
-                    article.price = article.price  # Behalte alten Preis
-            elif not article.price or article.price == 0:
-                p = price_from_suffix(sku, article.category)
-                if p is None:
-                    p = price_from_sku(sku)
-                if p is None:
-                    p = get_default_price(article.category)
-                article.price = p or 0.0
+                    article.stock = 0
+                try:
+                    article.minimum_stock = int(row.get('minimum_stock') or 0)
+                except ValueError:
+                    article.minimum_stock = 0
+                article.location_primary = row.get('location_primary') or ''
+                article.location_secondary = row.get('location_secondary') or ''
+                article.image = row.get('image') or ''
+                price_raw = row.get('price', '').strip()
+                if price_raw:
+                    try:
+                        article.price = float(price_raw.replace(',', '.'))
+                    except ValueError:
+                        pass
+                elif not article.price or article.price == 0:
+                    p = price_from_suffix(sku, article.category)
+                    if p is None:
+                        p = price_from_sku(sku)
+                    if p is None:
+                        p = get_default_price(article.category)
+                    article.price = p or 0.0
 
-
-         # Orders -----------------------------------------------------------
+        # Orders ----------------------------------------------------------
         from datetime import datetime
         orders_mapping = {}
         if orders_text:
@@ -714,7 +760,7 @@ def backup_import():
             fields = {'id', 'customer_name', 'customer_address', 'status', 'created_at'}
             if not r.fieldnames or not fields.issubset(set(r.fieldnames)):
                 flash('Ungültiges Format der Orders-Datei')
-                return redirect(url_for('main.backup_import'))
+                return redirect(url_for('main.settings_backup'))
             for row in r:
                 try:
                     oid = int(row.get('id') or 0)
@@ -727,7 +773,6 @@ def backup_import():
                     order = Order(id=oid)
                     db.session.add(order)
                 else:
-                    # remove existing items
                     for it in order.items:
                         db.session.delete(it)
                 order.customer_name = row.get('customer_name') or ''
@@ -740,13 +785,12 @@ def backup_import():
                     order.created_at = datetime.utcnow()
                 orders_mapping[oid] = order
 
-        # Order items ------------------------------------------------------
         if items_text:
             r = csv.DictReader(StringIO(items_text))
             fields = {'order_id', 'article_sku', 'quantity', 'unit_price'}
             if not r.fieldnames or not fields.issubset(set(r.fieldnames)):
                 flash('Ungültiges Format der Order-Items-Datei')
-                return redirect(url_for('main.backup_import'))
+                return redirect(url_for('main.settings_backup'))
             for row in r:
                 try:
                     oid = int(row.get('order_id') or 0)
@@ -765,7 +809,6 @@ def backup_import():
                 db.session.add(item)
 
 
-        # Invoice movements -------------------------------------------------
         if invoices_text:
             r = csv.DictReader(StringIO(invoices_text))
             fields = {
@@ -774,11 +817,10 @@ def backup_import():
             }
             if not r.fieldnames or not fields.issubset(set(r.fieldnames)):
                 flash('Ungültiges Format der Invoice-Movements-Datei')
-                return redirect(url_for('main.backup_import'))
+                return redirect(url_for('main.settings_backup'))
             existing_invoices = {
                 m.invoice_number for m in Movement.query.filter(Movement.invoice_number != None).all()
             }            
-            from datetime import datetime
             for row in r:
                 sku = (row.get('article_sku') or '').strip()
                 if not sku:
@@ -804,18 +846,97 @@ def backup_import():
                     type=row.get('type') or 'Warenausgang',
                     note=row.get('note') or '',
                     timestamp=ts,
-                    invoice_number=(inv or None),                    
+                    invoice_number=(inv or None),            
                 )
                 db.session.add(m)
 
+        # Settings ---------------------------------------------------------
+        if settings_text:
+            r = csv.DictReader(StringIO(settings_text))
+            if r.fieldnames and {'key', 'value'}.issubset(set(r.fieldnames)):
+                for row in r:
+                    key = row.get('key')
+                    if key:
+                        set_setting(key, row.get('value', ''))
+
+        if categories_text:
+            r = csv.DictReader(StringIO(categories_text))
+            fields = {'name', 'prefix', 'default_price', 'default_min_stock'}
+            if r.fieldnames and fields.issubset(set(r.fieldnames)):
+                for row in r:
+                    name = (row.get('name') or '').strip()
+                    if not name:
+                        continue
+                    cat = Category.query.filter_by(name=name).first()
+                    if not cat:
+                        cat = Category(name=name)
+                        db.session.add(cat)
+                    cat.prefix = row.get('prefix') or None
+                    try:
+                        cat.default_price = float(row.get('default_price') or 0)
+                    except ValueError:
+                        cat.default_price = 0
+                    try:
+                        cat.default_min_stock = int(row.get('default_min_stock') or 0)
+                    except ValueError:
+                        cat.default_min_stock = 0
+
+        if endings_text:
+            r = csv.DictReader(StringIO(endings_text))
+            fields = {'category', 'suffix', 'price', 'csv_multiplier'}
+            if r.fieldnames and fields.issubset(set(r.fieldnames)):
+                for row in r:
+                    suffix = (row.get('suffix') or '').strip()
+                    if not suffix:
+                        continue
+                    end = EndingCategory.query.filter_by(suffix=suffix).first()
+                    if not end:
+                        end = EndingCategory(suffix=suffix)
+                        db.session.add(end)
+                    end.category = row.get('category') or ''
+                    try:
+                        end.price = float(row.get('price') or 0)
+                    except ValueError:
+                        end.price = 0
+                    try:
+                        end.csv_multiplier = int(row.get('csv_multiplier') or 1)
+                    except ValueError:
+                        end.csv_multiplier = 1
+
+        if users_text:
+            r = csv.DictReader(StringIO(users_text))
+            fields = {
+                'id', 'username', 'email', 'password_hash',
+                'is_admin', 'is_staff', 'name', 'gender', 'bio', 'profile_image'
+            }
+            if r.fieldnames and fields.issubset(set(r.fieldnames)):
+                for row in r:
+                    try:
+                        uid = int(row.get('id') or 0)
+                    except ValueError:
+                        continue
+                    if uid <= 0:
+                        continue
+                    user = User.query.get(uid)
+                    if not user:
+                        user = User(id=uid)
+                        db.session.add(user)
+                    user.username = row.get('username') or ''
+                    user.email = row.get('email') or ''
+                    user.password_hash = row.get('password_hash') or ''
+                    user.is_admin = (row.get('is_admin') or '0') in ('1', 'True', 'true')
+                    user.is_staff = (row.get('is_staff') or '0') in ('1', 'True', 'true')
+                    user.name = row.get('name') or ''
+                    user.gender = row.get('gender') or ''
+                    user.bio = row.get('bio') or ''
+                    user.profile_image = row.get('profile_image') or ''
 
         db.session.commit()
-        log_activity('Backup importiert')        
+        log_activity('Backup importiert')
         flash('Backup importiert')
         return redirect(url_for('main.index'))
 
-    return render_template('backup_import.html')
-
+    return render_template('settings_backup.html')
 
 
 @bp.route('/invoices', methods=['GET', 'POST'])
