@@ -11,6 +11,9 @@ Dieses Projekt ist ein einfaches Lagerverwaltungssystem für Fanartikel basieren
    ```bash
    pip install python-dotenv
    ```
+   ```
+   pip install pytest
+   ```
 2. Anwendung starten:
    ```bash
    python run.py
@@ -21,9 +24,6 @@ Die Benutzerverwaltung ist standardmäßig aktiviert. Momentan kann man
 sie nicht deaktivieren.
 Beim ersten Start mit aktivierter Benutzerverwaltung wird automatisch ein
 Admin-Benutzer `admin` mit Passwort `admin` angelegt.
-
-Angemeldete Benutzer können ihr Profil unter "Profil" bearbeiten und dort
-Benutzername sowie Passwort ändern.
 
 ### Passwort-Reset per E-Mail
 Um das Zurücksetzen des Passworts zu ermöglichen, muss ein SMTP-Server
@@ -44,7 +44,6 @@ Die Umgebungsvariablen werden in der .env Datei festgelegt.
 
 Nach Einrichtung kann über den Link "Passwort vergessen?" auf der Login-Seite
 eine E-Mail mit einem Zurücksetz-Link angefordert werden.
-
 
 Jeder Artikel besitzt nun einen optionalen Mindestbestand. Im Dashboard wird
 ein Artikel rot markiert, sobald sein aktueller Lagerbestand unter diesen Wert
@@ -93,3 +92,8 @@ Das System ist modular aufgebaut und lässt sich später um Funktionen wie eine 
 
 ## Dark Mode
 Die Farben der Bootstrap‑Komponenten werden im Dark Mode leicht angepasst, um besser lesbar zu sein. Eigene Farbanpassungen befinden sich in `app/static/theme.css`.
+
+## Tests
+Man kann 4 Tests mit: ```
+python -m pytest -v``` 
+ausführen
