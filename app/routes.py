@@ -35,7 +35,7 @@ from .utils import (
     verify_reset_token,
 )
 
-from datetime import datetime
+from datetime import datetime, timedelta
 
 
 
@@ -1056,7 +1056,8 @@ def invoices():
 def invoice_analysis():
     """Show statistics for all invoiced movements grouped by article SKU."""
     sort = request.args.get('sort', 'sku')
-    query_results = (
+    days = request.args.get('days', type=int)
+    query = (
         db.session.query(
             Article.id.label('id'),
             Article.name.label('name'),
@@ -1068,9 +1069,11 @@ def invoice_analysis():
         )
         .join(Article, Movement.article_id == Article.id)
         .filter(Movement.invoice_number != None)
-        .group_by(Article.id)
-        .all()
     )
+    if days:
+        cutoff = datetime.utcnow() - timedelta(days=days)
+        query = query.filter(Movement.timestamp >= cutoff)
+    query_results = query.group_by(Article.id).all()    
     data = []
     for r in query_results:
         multiplier = csv_multiplier_from_suffix(r.sku, r.category)
@@ -1100,7 +1103,7 @@ def invoice_analysis():
     else:  # 'sku'
         data.sort(key=lambda x: x['sku'] or '')
 
-    return render_template('invoice_analysis.html', data=data, sort=sort)
+    return render_template('invoice_analysis.html', data=data, sort=sort, days=days)
 
 
 
