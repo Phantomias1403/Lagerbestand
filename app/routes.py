@@ -389,11 +389,15 @@ def new_movement(article_id):
         qty = int(request.form['quantity'])
         note = request.form.get('note')
         mtype = request.form.get('type', 'Wareneingang')
-        movement = Movement(article_id=article.id, quantity=qty, note=note, type=mtype)
+        invoice = request.form.get('invoice_number', '').strip()
+        if invoice and Movement.query.filter_by(invoice_number=invoice).first():
+            flash('Rechnungsnummer existiert bereits')
+            return redirect(url_for('main.new_movement', article_id=article.id))
+        movement = Movement(article_id=article.id, quantity=qty, note=note, type=mtype, invoice_number=invoice or None)
         article.stock += qty
         db.session.add(movement)
         db.session.commit()
-        log_activity(f'Bewegung {mtype} {qty} für {article.sku}')        
+        log_activity(f'Bewegung {mtype} {qty} für {article.sku}')  
         if article.stock < article.minimum_stock:
             flash('Bestand unter Mindestbestand!')
         flash('Bewegung erfasst')
@@ -803,13 +807,16 @@ def backup_import():
                     ts = datetime.fromisoformat(t) if t else datetime.utcnow()
                 except ValueError:
                     ts = datetime.utcnow()
+                inv = (row.get('invoice_number') or '').strip()
+                if inv and Movement.query.filter_by(invoice_number=inv).first():
+                    continue
                 m = Movement(
                     article_id=article.id,
                     quantity=qty,
                     type=row.get('type') or 'Warenausgang',
                     note=row.get('note') or '',
                     timestamp=ts,
-                    invoice_number=(row.get('invoice_number') or None),
+                    invoice_number=(inv or None),                    
                 )
                 db.session.add(m)
 
@@ -827,7 +834,7 @@ def backup_import():
 @login_optional
 @admin_required
 def invoices():
-    movements = Movement.query.filter(Movement.invoice_number != None).order_by(Movement.timestamp.desc()).all()
+    movements = Movement.query.filter(Movement.invoice_number != None).order_by(Movement.invoice_number.desc()).all()
     return render_template('invoices.html', movements=movements)
 
 @bp.route('/analysis')
@@ -1007,7 +1014,10 @@ def inventory():
                     if multiplier and multiplier != 1:
                         current_app.logger.info(f"[IMPORT] Multiplier f\u00fcr Sticker/Endung: {multiplier}")
                         qty *= multiplier
-
+                    if invoice and Movement.query.filter_by(invoice_number=invoice).first():
+                        flash(f'Rechnungsnummer {invoice} existiert bereits, Zeile übersprungen.')
+                        continue
+                    
                     article.stock -= qty
                     db.session.add(Movement(
                         article_id=article.id,
