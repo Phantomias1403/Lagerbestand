@@ -818,97 +818,16 @@ def backup_import():
 
 
 
-@bp.route('/invoices')
+@bp.route('/invoices', methods=['GET', 'POST'])
 @login_optional
 @admin_required
 def invoices():
-    movements = Movement.query.filter(Movement.invoice_number != None).order_by(Movement.invoice_number.desc()).all()
-    return render_template('invoices.html', movements=movements)
-
-@bp.route('/analysis/invoices')
-@login_optional
-@admin_required
-def invoice_analysis():
-    """Show statistics for all invoiced movements grouped by article SKU."""
-    sort = request.args.get('sort', 'sku')
-
-    query_results = (
-        db.session.query(
-            Article.id.label('id'),
-            Article.name.label('name'),
-            Article.sku.label('sku'),
-            Article.category.label('category'),
-            Article.price.label('price'),
-            func.sum(func.abs(Movement.quantity)).label('quantity'),
-            func.max(Movement.timestamp).label('last_date'),
-        )
-        .join(Article, Movement.article_id == Article.id)
-        .filter(Movement.invoice_number != None)
-        .group_by(Article.id)
-        .all()
-    )
-
-    data = []
-    for r in query_results:
-        multiplier = csv_multiplier_from_suffix(r.sku, r.category)
-        # Fallback für Sticker-Kategorie
-        if multiplier is None and r.category and r.category.strip().lower() == 'sticker':
-            multiplier = int(get_setting('sticker_csv_multiplier', '100') or '100')
-        # Absicherung gegen fehlerhafte Werte
-        if not multiplier or multiplier < 1:
-            multiplier = 1
-        quantity = r.quantity/multiplier
-        revenue = r.price * quantity
-        data.append(
-            dict(
-                name=r.name,
-                sku=r.sku,
-                quantity=r.quantity,
-                revenue=revenue,
-                last_date=r.last_date,
-            )
-        )
-    if sort == 'quantity':
-        data.sort(key=lambda x: x['quantity'] or 0, reverse=True)
-    elif sort == 'revenue':
-        data.sort(key=lambda x: x['revenue'] or 0, reverse=True)
-    elif sort == 'date':
-        data.sort(key=lambda x: x['last_date'] or datetime.min, reverse=True)        
-    else:  # 'sku'
-        data.sort(key=lambda x: x['sku'] or '')
-
-    return render_template('invoice_analysis.html', data=data, sort=sort)
-
-
-
-@bp.route('/inventory', methods=['GET', 'POST'])
-@login_optional
-@staff_required
-def inventory():
-    query = Article.query
-
-    # Suche verarbeiten
-    search = request.args.get('search')
-    if search:
-        query = query.filter(
-            (Article.name.contains(search)) | (Article.sku.contains(search))
-        )
-
-    # Kategorie-Filter mit Trim aus URL + DB
-    category = request.args.get('category')
-    if category:
-        query = query.filter(func.trim(Article.category) == category.strip())
-
-    categories = get_categories()
-
-    # CSV-Import bei POST
-    if request.method == 'POST' and 'search' not in request.form:
+    if request.method == 'POST':
         file = request.files.get('file')
         if file and file.filename:
             adjusted = 0
             data = file.read()
 
-            # Encoding prüfen und Text dekodieren
             text = None
             for enc in ('utf-8-sig', 'latin1'):
                 try:
@@ -919,7 +838,7 @@ def inventory():
 
             if text is None:
                 flash('Datei konnte nicht verarbeitet werden (Encoding).')
-                return redirect(url_for('main.inventory'))
+                return redirect(url_for('main.invoices'))
 
             reader = csv.DictReader(StringIO(text), delimiter=';')
             invoice_field = None
@@ -938,7 +857,7 @@ def inventory():
 
             if 'Posten: Artikelnummer' not in reader.fieldnames or 'Posten: Anzahl' not in reader.fieldnames:
                 flash('Erforderliche Spalten fehlen.')
-                return redirect(url_for('main.inventory'))
+                return redirect(url_for('main.invoices'))
 
             existing_invoices = {
                 m.invoice_number for m in Movement.query.filter(Movement.invoice_number != None).all()
@@ -994,28 +913,74 @@ def inventory():
                         timestamp=ts if ts else datetime.utcnow()
                     ))
                     adjusted += 1
-            except Exception as e:
+            except Exception:
                 flash('Fehler beim Verarbeiten der Datei.')
-                return redirect(url_for('main.inventory'))
+                return redirect(url_for('main.invoices'))
 
             if adjusted:
                 db.session.commit()
-                log_activity(f'Inventur-CSV importiert – {adjusted} Artikel angepasst')                
+                log_activity(f'Bestellungen-CSV importiert – {adjusted} Artikel angepasst')             
                 flash(f'CSV-Import abgeschlossen – {adjusted} Artikel angepasst.')
             else:
                 flash('CSV-Import abgeschlossen – Keine passenden Artikel gefunden.')
 
-            return redirect(url_for('main.inventory'))
+                return redirect(url_for('main.invoices'))
 
-    # WICHTIG: articles immer definieren, wenn kein Redirect/Return vorher ausgeführt wurde
-    articles = query.all()
+    movements = Movement.query.filter(Movement.invoice_number != None).order_by(Movement.invoice_number.desc()).all()
+    return render_template('invoices.html', movements=movements)
 
-    return render_template(
-        'inventory.html',
-        articles=articles,
-        categories=categories,
-        selected_category=category
+@bp.route('/analysis/invoices')
+@login_optional
+@admin_required
+def invoice_analysis():
+    """Show statistics for all invoiced movements grouped by article SKU."""
+    sort = request.args.get('sort', 'sku')
+    query_results = (
+        db.session.query(
+            Article.id.label('id'),
+            Article.name.label('name'),
+            Article.sku.label('sku'),
+            Article.category.label('category'),
+            Article.price.label('price'),
+            func.sum(func.abs(Movement.quantity)).label('quantity'),
+            func.max(Movement.timestamp).label('last_date'),
+        )
+        .join(Article, Movement.article_id == Article.id)
+        .filter(Movement.invoice_number != None)
+        .group_by(Article.id)
+        .all()
     )
+    data = []
+    for r in query_results:
+        multiplier = csv_multiplier_from_suffix(r.sku, r.category)
+        # Fallback für Sticker-Kategorie
+        if multiplier is None and r.category and r.category.strip().lower() == 'sticker':
+            multiplier = int(get_setting('sticker_csv_multiplier', '100') or '100')
+        # Absicherung gegen fehlerhafte Werte
+        if not multiplier or multiplier < 1:
+            multiplier = 1
+        quantity = r.quantity/multiplier
+        revenue = r.price * quantity
+        data.append(
+            dict(
+                name=r.name,
+                sku=r.sku,
+                quantity=r.quantity,
+                revenue=revenue,
+                last_date=r.last_date,
+            )
+        )
+    if sort == 'quantity':
+        data.sort(key=lambda x: x['quantity'] or 0, reverse=True)
+    elif sort == 'revenue':
+        data.sort(key=lambda x: x['revenue'] or 0, reverse=True)
+    elif sort == 'date':
+        data.sort(key=lambda x: x['last_date'] or datetime.min, reverse=True)        
+    else:  # 'sku'
+        data.sort(key=lambda x: x['sku'] or '')
+
+    return render_template('invoice_analysis.html', data=data, sort=sort)
+
 
 
 @bp.route('/settings')
