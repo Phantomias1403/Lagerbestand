@@ -4,19 +4,22 @@
 <div class="mb-3">
   <a href="{{ url_for('main.invoice_analysis', sort='revenue') }}" class="btn btn-primary{% if sort=='revenue' %} active{% endif %}">Nach Umsatz</a>
   <a href="{{ url_for('main.invoice_analysis', sort='quantity') }}" class="btn btn-primary{% if sort=='quantity' %} active{% endif %}">Nach Menge</a>
+  <a href="{{ url_for('main.invoice_analysis', sort='date') }}" class="btn btn-primary{% if sort=='date' %} active{% endif %}">Nach Datum</a>  
 </div>
 <div class="table-responsive">
 <table class="table table-striped">
   <thead>
     <tr><th>Rang</th><th>SKU</th><th>Menge</th><th>Umsatz (€)</th></tr>
+    <tr><th>Rang</th><th>SKU</th><th>Menge</th><th>Umsatz (€)</th><th>Letzte Rechnung</th></tr>    
   </thead>
   <tbody>
   {% for item in data %}
   <tr>
     <td>{{ loop.index }}</td>
-    <td>{{ item.name }} ({{ item.sku }})</td>
+    <td>{{ item.sku }}</td>
     <td>{{ item.quantity }}</td>
     <td>{{ '%.2f'|format(item.revenue) }}</td>
+    <td>{{ item.last_date.strftime('%Y-%m-%d') if item.last_date else '' }}</td>    
   </tr>
   {% endfor %}
   </tbody>
