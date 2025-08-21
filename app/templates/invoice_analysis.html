@@ -4,8 +4,15 @@
 <div class="mb-3">
   <a href="{{ url_for('main.invoice_analysis', sort='revenue') }}" class="btn btn-primary{% if sort=='revenue' %} active{% endif %}">Nach Umsatz</a>
   <a href="{{ url_for('main.invoice_analysis', sort='quantity') }}" class="btn btn-primary{% if sort=='quantity' %} active{% endif %}">Nach Menge</a>
-  <a href="{{ url_for('main.invoice_analysis', sort='date') }}" class="btn btn-primary{% if sort=='date' %} active{% endif %}">Nach Datum</a>  
+  <a href="{{ url_for('main.invoice_analysis', sort='date') }}" class="btn btn-primary{% if sort=='date' %} active{% endif %}">Nach Datum</a>
 </div>
+{% if sort == 'date' %}
+<div class="mb-3">
+  <a href="{{ url_for('main.invoice_analysis', sort='date', days=30) }}" class="btn btn-secondary{% if days==30 %} active{% endif %}">Letzte 30 Tage</a>
+  <a href="{{ url_for('main.invoice_analysis', sort='date', days=90) }}" class="btn btn-secondary{% if days==90 %} active{% endif %}">Letzte 90 Tage</a>
+  <a href="{{ url_for('main.invoice_analysis', sort='date') }}" class="btn btn-secondary{% if not days %} active{% endif %}">Alle</a>
+</div>
+{% endif %}
 <div class="table-responsive">
 <table class="table table-striped">
   <thead>
