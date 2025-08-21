@@ -1,0 +1,32 @@
+{% extends 'settings_base.html' %}
+{% set active_tab = 'backup' %}
+{% block settings_content %}
+<h2>Backup</h2>
+<div class="row">
+  <div class="col-md-6">
+    <h3>Export</h3>
+    <form method="post" action="{{ url_for('main.settings_backup_export') }}">
+      <div class="form-check">
+        <input class="form-check-input" type="checkbox" name="articles" id="articles" checked>
+        <label class="form-check-label" for="articles">Bestand</label>
+      </div>
+      <div class="form-check">
+        <input class="form-check-input" type="checkbox" name="orders" id="orders" checked>
+        <label class="form-check-label" for="orders">Bestellungen</label>
+      </div>
+      <div class="form-check">
+        <input class="form-check-input" type="checkbox" name="settings" id="settings" checked>
+        <label class="form-check-label" for="settings">Einstellungen</label>
+      </div>
+      <button type="submit" class="btn btn-primary mt-2">Exportieren</button>
+    </form>
+  </div>
+  <div class="col-md-6">
+    <h3>Import</h3>
+    <form method="post" enctype="multipart/form-data" action="{{ url_for('main.settings_backup') }}">
+      <input type="file" name="file" class="form-control" required>
+      <button type="submit" class="btn btn-primary mt-2">Importieren</button>
+    </form>
+  </div>
+</div>
+{% endblock %}
