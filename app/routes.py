@@ -871,6 +871,7 @@ def invoice_analysis():
             Article.category.label('category'),
             Article.price.label('price'),
             func.sum(func.abs(Movement.quantity)).label('quantity'),
+            func.max(Movement.timestamp).label('last_date'),
         )
         .join(Article, Movement.article_id == Article.id)
         .filter(Movement.invoice_number != None)
@@ -890,12 +891,20 @@ def invoice_analysis():
         quantity = r.quantity/multiplier
         revenue = r.price * quantity
         data.append(
-            dict(name=r.name, sku=r.sku, quantity=r.quantity, revenue=revenue)
+            dict(
+                name=r.name,
+                sku=r.sku,
+                quantity=r.quantity,
+                revenue=revenue,
+                last_date=r.last_date,
+            )
         )
     if sort == 'quantity':
         data.sort(key=lambda x: x['quantity'] or 0, reverse=True)
     elif sort == 'revenue':
         data.sort(key=lambda x: x['revenue'] or 0, reverse=True)
+    elif sort == 'date':
+        data.sort(key=lambda x: x['last_date'] or datetime.min, reverse=True)        
     else:  # 'sku'
         data.sort(key=lambda x: x['sku'] or '')
 
