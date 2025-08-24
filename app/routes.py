@@ -1047,8 +1047,37 @@ def invoices():
 
                 return redirect(url_for('main.invoices'))
 
-    movements = Movement.query.filter(Movement.invoice_number != None).order_by(Movement.invoice_number.desc()).all()
-    return render_template('invoices.html', movements=movements)
+    period = request.args.get('period', '30')
+    start_str = request.args.get('start', '')
+    end_str = request.args.get('end', '')
+
+    query = Movement.query.filter(Movement.invoice_number != None)
+
+    if period == 'custom':
+        start_dt = None
+        end_dt = None
+        if start_str:
+            try:
+                start_dt = datetime.strptime(start_str, '%Y-%m-%d')
+                query = query.filter(Movement.timestamp >= start_dt)
+            except ValueError:
+                start_dt = None
+        if end_str:
+            try:
+                end_dt = datetime.strptime(end_str, '%Y-%m-%d') + timedelta(days=1)
+                query = query.filter(Movement.timestamp < end_dt)
+            except ValueError:
+                end_dt = None
+    else:
+        try:
+            days = int(period)
+            cutoff = datetime.utcnow() - timedelta(days=days)
+            query = query.filter(Movement.timestamp >= cutoff)
+        except (TypeError, ValueError):
+            period = None
+
+    movements = query.order_by(Movement.invoice_number.desc()).all()
+    return render_template('invoices.html', movements=movements, period=period, start=start_str, end=end_str)
 
 @bp.route('/analysis/invoices')
 @login_optional
@@ -1056,7 +1085,11 @@ def invoices():
 def invoice_analysis():
     """Show statistics for all invoiced movements grouped by article SKU."""
     sort = request.args.get('sort', 'sku')
-    days = request.args.get('days', type=int)
+    period = request.args.get('period')
+    if sort == 'date' and not period:
+        period = '30'
+    start_str = request.args.get('start', '')
+    end_str = request.args.get('end', '')
     query = (
         db.session.query(
             Article.id.label('id'),
@@ -1070,10 +1103,27 @@ def invoice_analysis():
         .join(Article, Movement.article_id == Article.id)
         .filter(Movement.invoice_number != None)
     )
-    if days:
-        cutoff = datetime.utcnow() - timedelta(days=days)
-        query = query.filter(Movement.timestamp >= cutoff)
-    query_results = query.group_by(Article.id).all()    
+    if period == 'custom':
+        if start_str:
+            try:
+                start_dt = datetime.strptime(start_str, '%Y-%m-%d')
+                query = query.filter(Movement.timestamp >= start_dt)
+            except ValueError:
+                pass
+        if end_str:
+            try:
+                end_dt = datetime.strptime(end_str, '%Y-%m-%d') + timedelta(days=1)
+                query = query.filter(Movement.timestamp < end_dt)
+            except ValueError:
+                pass
+    else:
+        try:
+            days = int(period)
+            cutoff = datetime.utcnow() - timedelta(days=days)
+            query = query.filter(Movement.timestamp >= cutoff)
+        except (TypeError, ValueError):
+            period = None
+    query_results = query.group_by(Article.id).all()  
     data = []
     for r in query_results:
         multiplier = csv_multiplier_from_suffix(r.sku, r.category)
@@ -1103,7 +1153,7 @@ def invoice_analysis():
     else:  # 'sku'
         data.sort(key=lambda x: x['sku'] or '')
 
-    return render_template('invoice_analysis.html', data=data, sort=sort, days=days)
+    return render_template('invoice_analysis.html', data=data, sort=sort, period=period, start=start_str, end=end_str)
 
 @bp.route('/mitarbeiter')
 @login_optional
