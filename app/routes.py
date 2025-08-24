@@ -1113,7 +1113,7 @@ def mitarbeiter():
         db.session.query(
             User.id.label('id'),
             User.username.label('username'),
-            func.count(Order.id).label('order_count')
+            func.coalesce(func.sum(Order.order_quantity), 0).label('order_count')
         )
         .outerjoin(Order, Order.user_id == User.id)
         .group_by(User.id)
@@ -1121,6 +1121,35 @@ def mitarbeiter():
         .all()
     )
     return render_template('mitarbeiter.html', users=users)
+
+
+@bp.route('/mitarbeiter/<int:user_id>', methods=['GET', 'POST'])
+@login_optional
+@admin_required
+def mitarbeiter_detail(user_id):
+    user = User.query.get_or_404(user_id)
+    if request.method == 'POST':
+        order_number = request.form.get('order_number', '').strip()
+        quantity_str = request.form.get('order_quantity', '0').strip()
+        try:
+            quantity = int(quantity_str)
+        except ValueError:
+            quantity = 0
+        if order_number and quantity > 0:
+            order = Order(
+                customer_name=order_number,
+                order_number=order_number,
+                order_quantity=quantity,
+                user_id=user.id,
+            )
+            db.session.add(order)
+            db.session.commit()
+            flash('Bestellung hinzugefügt.')
+            return redirect(url_for('main.mitarbeiter_detail', user_id=user.id))
+        flash('Ungültige Daten')
+    orders = Order.query.filter_by(user_id=user.id).all()
+    total = sum(o.order_quantity or 0 for o in orders)
+    return render_template('mitarbeiter_detail.html', user=user, orders=orders, total_orders=total)
 
 
 
