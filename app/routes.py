@@ -1105,6 +1105,24 @@ def invoice_analysis():
 
     return render_template('invoice_analysis.html', data=data, sort=sort, days=days)
 
+@bp.route('/mitarbeiter')
+@login_optional
+@admin_required
+def mitarbeiter():
+    users = (
+        db.session.query(
+            User.id.label('id'),
+            User.username.label('username'),
+            func.count(Order.id).label('order_count')
+        )
+        .outerjoin(Order, Order.user_id == User.id)
+        .group_by(User.id)
+        .order_by(User.username)
+        .all()
+    )
+    return render_template('mitarbeiter.html', users=users)
+
+
 
 
 @bp.route('/settings')
