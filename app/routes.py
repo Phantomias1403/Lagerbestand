@@ -554,14 +554,15 @@ def settings_backup_export():
         if include_orders:
             si = StringIO()
             writer = csv.writer(si)
-            writer.writerow(['id', 'customer_name', 'customer_address', 'status', 'created_at'])
+            writer.writerow(['id', 'customer_name', 'customer_address', 'status', 'created_at', 'user_id'])
             for o in Order.query.all():
                 writer.writerow([
                     o.id,
                     o.customer_name or '',
                     o.customer_address or '',
                     o.status or '',
-                    o.created_at.isoformat() if o.created_at else ''
+                    o.created_at.isoformat() if o.created_at else '',
+                    o.user_id or ''
                 ])
             zf.writestr('orders.csv', si.getvalue().encode('utf-8'))
 
@@ -783,6 +784,11 @@ def settings_backup():
                     order.created_at = datetime.fromisoformat(ts) if ts else datetime.utcnow()
                 except ValueError:
                     order.created_at = datetime.utcnow()
+                try:
+                    uid = int(row.get('user_id') or 0)
+                    order.user_id = uid if uid > 0 else None
+                except ValueError:
+                    order.user_id = None
                 orders_mapping[oid] = order
 
         if items_text:
@@ -1047,7 +1053,7 @@ def invoices():
 
                 return redirect(url_for('main.invoices'))
 
-    period = request.args.get('period', '30')
+    period = request.args.get('period', 'all')
     start_str = request.args.get('start', '')
     end_str = request.args.get('end', '')
 
@@ -1068,7 +1074,7 @@ def invoices():
                 query = query.filter(Movement.timestamp < end_dt)
             except ValueError:
                 end_dt = None
-    else:
+    elif period != 'all':
         try:
             days = int(period)
             cutoff = datetime.utcnow() - timedelta(days=days)
@@ -1087,7 +1093,7 @@ def invoice_analysis():
     sort = request.args.get('sort', 'sku')
     period = request.args.get('period')
     if sort == 'date' and not period:
-        period = '30'
+        period = 'all'
     start_str = request.args.get('start', '')
     end_str = request.args.get('end', '')
     query = (
@@ -1116,7 +1122,7 @@ def invoice_analysis():
                 query = query.filter(Movement.timestamp < end_dt)
             except ValueError:
                 pass
-    else:
+    elif period not in (None, 'all'):
         try:
             days = int(period)
             cutoff = datetime.utcnow() - timedelta(days=days)
