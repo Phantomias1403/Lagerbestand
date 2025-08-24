@@ -11,7 +11,7 @@
   </thead>
   <tbody>
     {% for u in users %}
-    <tr>
+    <tr onclick="window.location='{{ url_for('main.mitarbeiter_detail', user_id=u.id) }}'" style="cursor:pointer;">
       <td>{{ u.id }}</td>
       <td>{{ u.username }}</td>
       <td>{{ u.order_count }}</td>
