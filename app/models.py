@@ -16,7 +16,10 @@ class User(UserMixin, db.Model):
     bio = db.Column(db.String(500))
     profile_image = db.Column(db.String(200))
 
-    logs = db.relationship('ActivityLog', backref='user', lazy=True)
+    # Remove related activity logs automatically when a user is deleted
+    logs = db.relationship(
+        'ActivityLog', backref='user', lazy=True, cascade='all, delete-orphan'
+    )
 
     def has_staff_rights(self):
         return self.is_admin or self.is_staff
@@ -115,8 +118,17 @@ class Message(db.Model):
     content = db.Column(db.String(500), nullable=False)
     timestamp = db.Column(db.DateTime, default=datetime.utcnow)
 
-    sender = db.relationship('User', foreign_keys=[sender_id])
-    receiver = db.relationship('User', foreign_keys=[receiver_id])
+    # Ensure messages referencing a user are removed if that user is deleted
+    sender = db.relationship(
+        'User',
+        foreign_keys=[sender_id],
+        backref=db.backref('sent_messages', cascade='all, delete-orphan')
+    )
+    receiver = db.relationship(
+        'User',
+        foreign_keys=[receiver_id],
+        backref=db.backref('received_messages', cascade='all, delete-orphan')
+    )
 
     
 class ActivityLog(db.Model):
