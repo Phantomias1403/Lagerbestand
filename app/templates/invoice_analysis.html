@@ -12,6 +12,7 @@
   <div class="col-12 col-md-3">
     <label for="period" class="form-label">Zeitraum</label>
     <select id="period" name="period" class="form-select" onchange="toggleCustom(this.value)">
+      <option value="all" {% if period == 'all' %}selected{% endif %}>Gesamt</option>
       <option value="30" {% if period == '30' %}selected{% endif %}>Letzte 30 Tage</option>
       <option value="90" {% if period == '90' %}selected{% endif %}>Letzte 90 Tage</option>
       <option value="365" {% if period == '365' %}selected{% endif %}>Letztes Jahr</option>
