@@ -65,6 +65,8 @@ class Order(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
     user = db.relationship('User', backref='orders')
+    order_number = db.Column(db.String(100))
+    order_quantity = db.Column(db.Integer, default=0)
 
     items = db.relationship('OrderItem', backref='order', lazy=True, cascade='all, delete-orphan')
     movements = db.relationship('Movement', backref='order', lazy=True)
