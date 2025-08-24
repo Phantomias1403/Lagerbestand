@@ -1,0 +1,32 @@
+{% extends 'layout.html' %}
+{% block content %}
+<h2>Mitarbeiter: {{ user.username }}</h2>
+<p>Gesamtanzahl Bestellungen: {{ total_orders }}</p>
+<form method="post" class="mb-4">
+  <div class="mb-3">
+    <label class="form-label">Bestellungsnummer</label>
+    <input class="form-control" name="order_number" required>
+  </div>
+  <div class="mb-3">
+    <label class="form-label">Anzahl der Bestellungen</label>
+    <input type="number" class="form-control" name="order_quantity" value="1" min="1" required>
+  </div>
+  <button type="submit" class="btn btn-primary">Hinzufügen</button>
+</form>
+<table class="table table-striped">
+  <thead>
+    <tr>
+      <th>Bestellungsnummer</th>
+      <th>Anzahl</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for o in orders %}
+    <tr>
+      <td>{{ o.order_number }}</td>
+      <td>{{ o.order_quantity }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}
