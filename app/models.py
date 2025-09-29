@@ -110,6 +110,20 @@ class EndingCategory(db.Model):
     suffix = db.Column(db.String(20), unique=True, nullable=False)
     price = db.Column(db.Float, default=0.0)
     csv_multiplier = db.Column(db.Integer, default=1)
+    components = db.relationship(
+        'EndingComponent',
+        backref='ending',
+        lazy=True,
+        cascade='all, delete-orphan'
+    )
+
+
+class EndingComponent(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    ending_id = db.Column(db.Integer, db.ForeignKey('ending_category.id'), nullable=False)
+    component_sku = db.Column(db.String(64), nullable=False)
+    component_quantity = db.Column(db.Integer, default=1)
+
 
 class Message(db.Model):
     id = db.Column(db.Integer, primary_key=True)
