@@ -597,20 +597,20 @@ def settings_backup_export():
             si = StringIO()
             writer = csv.writer(si)
             writer.writerow([
-                'article_sku', 'article_name', 'quantity',
-                'type', 'note', 'timestamp', 'invoice_number'
+                'article_sku', 'quantity', 'type', 'note', 'timestamp',
+                'invoice_number', 'order_id'
             ])
-            for m in Movement.query.filter(Movement.invoice_number != None).all():
+            for m in Movement.query.order_by(Movement.timestamp).all():
                 writer.writerow([
                     m.article.sku if m.article else '',
-                    m.article.name if m.article else '',
                     m.quantity,
                     m.type,
                     m.note or '',
                     m.timestamp.isoformat() if m.timestamp else '',
-                    m.invoice_number or ''
+                    m.invoice_number or '',
+                    m.order_id or ''
                 ])
-            zf.writestr('invoice_movements.csv', si.getvalue().encode('utf-8'))
+            zf.writestr('movements.csv', si.getvalue().encode('utf-8'))
 
         if include_settings_part:
             si = StringIO()
@@ -714,8 +714,9 @@ def settings_backup():
         if zipfile.is_zipfile(BytesIO(raw)):
             with zipfile.ZipFile(BytesIO(raw)) as zf:
                 for name in (
-                    'articles.csv', 'orders.csv', 'order_items.csv', 'invoice_movements.csv',
-                    'settings.csv', 'categories.csv', 'endings.csv', 'ending_components.csv', 'users.csv'
+                    'articles.csv', 'orders.csv', 'order_items.csv', 'movements.csv',
+                    'invoice_movements.csv', 'settings.csv', 'categories.csv', 'endings.csv',
+                    'ending_components.csv', 'users.csv'
                 ):
                     try:
                         texts[name] = decode_bytes(zf.read(name))
@@ -727,6 +728,7 @@ def settings_backup():
         articles_text = texts.get('articles.csv')
         orders_text = texts.get('orders.csv')
         items_text = texts.get('order_items.csv')
+        movements_text = texts.get('movements.csv')
         invoices_text = texts.get('invoice_movements.csv')
         settings_text = texts.get('settings.csv')
         categories_text = texts.get('categories.csv')
@@ -845,18 +847,19 @@ def settings_backup():
                 db.session.add(item)
 
 
-        if invoices_text:
-            r = csv.DictReader(StringIO(invoices_text))
+        if movements_text or invoices_text:
+            raw_movements = movements_text or invoices_text
+            r = csv.DictReader(StringIO(raw_movements))
             fields = {
-                'article_sku', 'quantity', 'type',
-                'note', 'timestamp', 'invoice_number'
+                'article_sku', 'quantity', 'type', 'note', 'timestamp',
+                'invoice_number'
             }
             if not r.fieldnames or not fields.issubset(set(r.fieldnames)):
-                flash('Ungültiges Format der Invoice-Movements-Datei')
+                flash('Ungültiges Format der Bewegungs-Datei')
                 return redirect(url_for('main.settings_backup'))
-            existing_invoices = {
-                m.invoice_number for m in Movement.query.filter(Movement.invoice_number != None).all()
-            }            
+
+            Movement.query.delete()
+            db.session.flush()         
             for row in r:
                 sku = (row.get('article_sku') or '').strip()
                 if not sku:
@@ -874,17 +877,29 @@ def settings_backup():
                 except ValueError:
                     ts = datetime.utcnow()
                 inv = (row.get('invoice_number') or '').strip()
-                if inv and inv in existing_invoices:
-                    continue
-                m = Movement(
+                try:
+                    order_id_value = int(row.get('order_id') or 0)
+                except ValueError:
+                    order_id_value = 0
+
+                movement = Movement(
                     article_id=article.id,
                     quantity=qty,
                     type=row.get('type') or 'Warenausgang',
                     note=row.get('note') or '',
                     timestamp=ts,
-                    invoice_number=(inv or None),            
+                    invoice_number=(inv or None) if inv else None,          
                 )
-                db.session.add(m)
+
+                if order_id_value:
+                    if order_id_value in orders_mapping:
+                        movement.order_id = order_id_value
+                    else:
+                        existing_order = Order.query.get(order_id_value)
+                        if existing_order:
+                            movement.order_id = order_id_value
+
+                db.session.add(movement)
 
         # Settings ---------------------------------------------------------
         if settings_text:
