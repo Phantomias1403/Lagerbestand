@@ -2,7 +2,7 @@ import pytest
 from flask import Flask
 
 from app import db, login_manager
-from app.models import Category, EndingCategory
+from app.models import Category, EndingCategory, EndingComponent
 from app.utils import (
     _get_prefix_definitions,
     category_from_sku,
@@ -11,6 +11,7 @@ from app.utils import (
     get_default_minimum_stock,
     generate_reset_token,
     verify_reset_token,
+    get_mix_components,
 )
 
 
@@ -61,6 +62,13 @@ def test_price_and_multiplier_from_suffix(app):
         assert price_from_suffix('ST-1-XX', 'Sticker') == 10.0
         assert csv_multiplier_from_suffix('ST-1-XX', 'Sticker') == 2
 
+        comp = EndingComponent(ending_id=end.id, component_sku='ST-BASE', component_quantity=3)
+        db.session.add(comp)
+        db.session.commit()
+
+        assert csv_multiplier_from_suffix('ST-1-XX', 'Sticker') == 1
+        assert price_from_suffix('ST-1-XX', 'Sticker') == 20.0
+        assert get_mix_components('ST-1-XX', 'Sticker') == [('ST-BASE', 3)]
 
 def test_get_default_minimum_stock(app):
     with app.app_context():
