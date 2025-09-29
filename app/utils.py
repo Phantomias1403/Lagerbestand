@@ -133,6 +133,8 @@ def price_from_suffix(sku: str, category: str | None = None) -> float | None:
         if sku.endswith(end.suffix) and (category is None or end.category == category):
             price = end.price
             multiplier = end.csv_multiplier or 1
+            if end.components:
+                multiplier = 1
             if multiplier and multiplier > 1:
                 price = price / multiplier
             return price
@@ -143,8 +145,28 @@ def csv_multiplier_from_suffix(sku: str, category: str | None = None) -> int | N
     """Return CSV multiplier for a specific combination of category and SKU suffix."""
     for end in EndingCategory.query.all():
         if sku.endswith(end.suffix) and (category is None or end.category == category):
+            if end.components:
+                return 1
             return end.csv_multiplier or 1
     return None
+
+def get_mix_components(sku: str, category: str | None = None) -> list[tuple[str, int]]:
+    """Return a list of ``(component_sku, quantity)`` tuples for a mix ending."""
+    for end in EndingCategory.query.all():
+        if sku.endswith(end.suffix) and (category is None or end.category == category):
+            components: list[tuple[str, int]] = []
+            for comp in end.components:
+                sku_value = (comp.component_sku or '').strip()
+                if not sku_value:
+                    continue
+                quantity = comp.component_quantity or 1
+                if quantity < 1:
+                    quantity = 1
+                components.append((sku_value, quantity))
+            if components:
+                return components
+    return []
+
 
 def generate_reset_token(user_id: int) -> str:
     """Return a signed token for password reset."""
