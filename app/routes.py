@@ -1353,14 +1353,20 @@ def edit_category(category_id):
 @login_optional
 @admin_required
 def apply_category_defaults(category_id):
-    """Apply default price and minimum stock of a category to all its articles."""
+    """Apply defaults and category assignment based on the category prefix."""
     category = Category.query.get_or_404(category_id)
-    Article.query.filter_by(category=category.name).update({
+    query = Article.query
+    if category.prefix:
+        query = query.filter(Article.sku.like(f"{category.prefix}%"))
+    else:
+        query = query.filter_by(category=category.name)
+    query.update({
+        'category': category.name,
         'price': category.default_price,
         'minimum_stock': category.default_min_stock,
     })
     db.session.commit()
-    log_activity(f'Standardwerte für Kategorie {category.name} angewendet')    
+    log_activity(f'Standardwerte für Kategorie {category.name} angewendet')   
     flash('Standardwerte auf Artikel angewendet')
     return redirect(url_for('main.settings_categories'))
 
@@ -1449,16 +1455,15 @@ def edit_ending(ending_id):
 @login_optional
 @admin_required
 def apply_ending_price(ending_id):
-    """Apply the price of an ending category to all matching articles."""
+    """Apply the ending's category and price to all matching articles."""
     ending = EndingCategory.query.get_or_404(ending_id)
     if ending.suffix:
         price = ending.price
         if ending.csv_multiplier and ending.csv_multiplier > 1:
             price = price 
         Article.query.filter(
-            Article.category == ending.category,
             Article.sku.like(f"%{ending.suffix}")
-        ).update({'price': price})
+        ).update({'price': price, 'category': ending.category})
         db.session.commit()
         log_activity(f'Preis-Endung {ending.suffix} angewendet')        
         flash('Preis auf Artikel angewendet')
