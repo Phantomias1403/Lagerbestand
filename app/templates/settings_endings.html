@@ -8,7 +8,7 @@
       <th>Kategorie</th>
       <th>Preis</th>
        <th>CSV Multiplikator</th>
-      <th>Mix-Komponenten</th>
+      <th>Artikelübersicht</th>
       <th>Aktionen</th>
     </tr>
   </thead>
@@ -20,14 +20,17 @@
       <td>{{ '%.2f' % e.price if e.price is not none else '' }}</td>
       <td>{{ e.csv_multiplier }}</td>
       <td>
-        {% if e.components %}
-        <ul class="mb-0 ps-3">
-          {% for comp in e.components %}
-          <li>{{ comp.component_sku }} × {{ comp.component_quantity }}</li>
-          {% endfor %}
-        </ul>
+        {% set info = article_overview.get(e.id) %}
+        {% if info and info.total %}
+        <div><strong>{{ info.with_components }}</strong> von {{ info.total }} Artikeln haben Mix-Komponenten.</div>
+        {% if info.missing_skus %}
+        <div class="small text-muted">Ohne Komponenten: {{ info.missing_skus|join(', ') }}</div>
+        {% endif %}
         {% else %}
-        <span class="text-muted">Keine</span>
+        <span class="text-muted">Keine passenden Artikel</span>
+        {% endif %}
+        {% if e.components %}
+        <div class="small text-warning mt-1">Legacy-Komponenten vorhanden – bitte zu Artikeln verschieben.</div>
         {% endif %}
       </td>
       <td>
