@@ -17,7 +17,19 @@ import os
 from werkzeug.utils import secure_filename
 
 from . import db
-from .models import User, Article, Movement, Order, OrderItem, Category, EndingCategory, Message, ActivityLog, Setting
+from .models import (
+    User,
+    Article,
+    Movement,
+    Order,
+    OrderItem,
+    Category,
+    EndingCategory,
+    EndingComponent,
+    Message,
+    ActivityLog,
+    Setting,
+)
 from .utils import (
     get_setting,
     set_setting,
@@ -28,6 +40,7 @@ from .utils import (
     price_from_sku,
     price_from_suffix,
     csv_multiplier_from_suffix,
+    get_mix_components,
     get_default_price,
     get_default_minimum_stock,
     send_email,
@@ -630,6 +643,19 @@ def settings_backup_export():
 
             si = StringIO()
             writer = csv.writer(si)
+            writer.writerow(['category', 'suffix', 'component_sku', 'component_quantity'])
+            for e in EndingCategory.query.all():
+                for comp in e.components:
+                    writer.writerow([
+                        e.category or '',
+                        e.suffix or '',
+                        comp.component_sku,
+                        comp.component_quantity or 1,
+                    ])
+            zf.writestr('ending_components.csv', si.getvalue().encode('utf-8'))
+
+            si = StringIO()
+            writer = csv.writer(si)
             writer.writerow([
                 'id', 'username', 'email', 'password_hash',
                 'is_admin', 'is_staff', 'name', 'gender', 'bio', 'profile_image'
@@ -686,7 +712,7 @@ def settings_backup():
             with zipfile.ZipFile(BytesIO(raw)) as zf:
                 for name in (
                     'articles.csv', 'orders.csv', 'order_items.csv', 'invoice_movements.csv',
-                    'settings.csv', 'categories.csv', 'endings.csv', 'users.csv'
+                    'settings.csv', 'categories.csv', 'endings.csv', 'ending_components.csv', 'users.csv'
                 ):
                     try:
                         texts[name] = decode_bytes(zf.read(name))
@@ -702,6 +728,7 @@ def settings_backup():
         settings_text = texts.get('settings.csv')
         categories_text = texts.get('categories.csv')
         endings_text = texts.get('endings.csv')
+        ending_components_text = texts.get('ending_components.csv')
         users_text = texts.get('users.csv')
 
         if not any(texts.values()):
@@ -909,6 +936,32 @@ def settings_backup():
                     except ValueError:
                         end.csv_multiplier = 1
 
+        if ending_components_text:
+            r = csv.DictReader(StringIO(ending_components_text))
+            fields = {'category', 'suffix', 'component_sku', 'component_quantity'}
+            if r.fieldnames and fields.issubset(set(r.fieldnames)):
+                for row in r:
+                    suffix = (row.get('suffix') or '').strip()
+                    category = (row.get('category') or '').strip()
+                    component_sku = (row.get('component_sku') or '').strip()
+                    if not suffix or not component_sku:
+                        continue
+                    ending = EndingCategory.query.filter_by(suffix=suffix, category=category).first()
+                    if not ending:
+                        continue
+                    try:
+                        qty = int(row.get('component_quantity') or 1)
+                    except ValueError:
+                        qty = 1
+                    if qty < 1:
+                        qty = 1
+                    existing = next((c for c in ending.components if c.component_sku == component_sku), None)
+                    if existing:
+                        existing.component_quantity = qty
+                    else:
+                        ending.components.append(EndingComponent(component_sku=component_sku, component_quantity=qty))
+
+
         if users_text:
             r = csv.DictReader(StringIO(users_text))
             fields = {
@@ -953,6 +1006,7 @@ def invoices():
         file = request.files.get('file')
         if file and file.filename:
             adjusted = 0
+            missing_components: set[str] = set()
             data = file.read()
 
             text = None
@@ -1020,25 +1074,47 @@ def invoices():
                     if not article:
                         continue
 
-                    multiplier = csv_multiplier_from_suffix(article.sku, article.category)
-                    if multiplier is None and article.category and article.category.strip().lower() == 'sticker':
-                        multiplier = int(get_setting('sticker_csv_multiplier', '100') or '100')
-                    if multiplier and multiplier != 1:
-                        current_app.logger.info(f"[IMPORT] Multiplier f\u00fcr Sticker/Endung: {multiplier}")
-                        qty *= multiplier
+                    original_qty = qty
+                    components = get_mix_components(article.sku, article.category)
+
+                    if not components:
+                        multiplier = csv_multiplier_from_suffix(article.sku, article.category)
+                        if multiplier is None and article.category and article.category.strip().lower() == 'sticker':
+                            multiplier = int(get_setting('sticker_csv_multiplier', '100') or '100')
+                        if multiplier and multiplier != 1:
+                            current_app.logger.info(f"[IMPORT] Multiplier f\u00fcr Sticker/Endung: {multiplier}")
+                            qty *= multiplier
                     if invoice and invoice in existing_invoices:
                         flash(f'Rechnungsnummer {invoice} existiert bereits, Zeile übersprungen.')
                         continue
                     
-                    article.stock -= qty
+                    movement_quantity = -original_qty if components else -qty
                     db.session.add(Movement(
                         article_id=article.id,
-                        quantity=-qty,
+                        quantity=movement_quantity,
                         type='Warenausgang',
                         invoice_number=invoice if invoice else None,
                         note='Import Export-Datei',
                         timestamp=ts if ts else datetime.utcnow()
                     ))
+                    if components:
+                        for comp_sku, comp_qty in components:
+                            comp_article = Article.query.filter_by(sku=comp_sku).first()
+                            if not comp_article:
+                                missing_components.add(comp_sku)
+                                continue
+                            deduction = original_qty * comp_qty
+                            comp_article.stock -= deduction
+                            db.session.add(Movement(
+                                article_id=comp_article.id,
+                                quantity=-deduction,
+                                type='Mix-Aufteilung',
+                                invoice_number=None,
+                                note=f'Mix {article.sku} ({invoice})',
+                                timestamp=ts if ts else datetime.utcnow()
+                            ))
+                    else:
+                        article.stock -= qty
                     adjusted += 1
             except Exception:
                 flash('Fehler beim Verarbeiten der Datei.')
@@ -1046,7 +1122,9 @@ def invoices():
 
             if adjusted:
                 db.session.commit()
-                log_activity(f'Bestellungen-CSV importiert – {adjusted} Artikel angepasst')             
+                if missing_components:
+                    flash('Für folgende Mix-Komponenten wurde kein Artikel gefunden: ' + ', '.join(sorted(missing_components)))
+                log_activity(f'Bestellungen-CSV importiert – {adjusted} Artikel angepasst')           
                 flash(f'CSV-Import abgeschlossen – {adjusted} Artikel angepasst.')
             else:
                 flash('CSV-Import abgeschlossen – Keine passenden Artikel gefunden.')
@@ -1429,7 +1507,7 @@ def edit_ending(ending_id):
     ending = EndingCategory.query.get_or_404(ending_id)
     if request.method == 'POST':
         suffix = request.form.get('suffix', '').strip()
-        category = request.form.get('category', '').strip()        
+        category = request.form.get('category', '').strip()       
         price_raw = request.form.get('price', '').replace(',', '.').strip()
         multiplier_raw = request.form.get('multiplier', '').strip()
         if suffix:
@@ -1450,6 +1528,47 @@ def edit_ending(ending_id):
         return redirect(url_for('main.settings_endings'))
     categories = get_categories()
     return render_template('ending_form.html', ending=ending, categories=categories)
+
+@bp.route('/settings/endings/<int:ending_id>/components/add', methods=['POST'])
+@login_optional
+@admin_required
+def add_ending_component(ending_id):
+    ending = EndingCategory.query.get_or_404(ending_id)
+    sku = request.form.get('component_sku', '').strip()
+    quantity_raw = request.form.get('component_quantity', '1').strip()
+    if sku:
+        try:
+            quantity = int(quantity_raw)
+        except ValueError:
+            quantity = 1
+        if quantity < 1:
+            quantity = 1
+        existing = next((c for c in ending.components if c.component_sku == sku), None)
+        if existing:
+            existing.component_quantity = quantity
+        else:
+            ending.components.append(EndingComponent(component_sku=sku, component_quantity=quantity))
+        db.session.commit()
+        log_activity(f'Mix-Komponente {sku} für Endung {ending.suffix} aktualisiert')
+        flash('Komponente gespeichert.')
+    else:
+        flash('Ungültige Komponente.')
+    return redirect(url_for('main.edit_ending', ending_id=ending.id))
+
+
+@bp.route('/settings/endings/<int:ending_id>/components/<int:component_id>/delete', methods=['POST'])
+@login_optional
+@admin_required
+def delete_ending_component(ending_id, component_id):
+    ending = EndingCategory.query.get_or_404(ending_id)
+    component = EndingComponent.query.filter_by(id=component_id, ending_id=ending.id).first()
+    if component:
+        db.session.delete(component)
+        db.session.commit()
+        log_activity(f'Mix-Komponente {component.component_sku} von Endung {ending.suffix} entfernt')
+        flash('Komponente entfernt.')
+    return redirect(url_for('main.edit_ending', ending_id=ending.id))
+
 
 @bp.route('/settings/endings/<int:ending_id>/apply', methods=['POST'])
 @login_optional
