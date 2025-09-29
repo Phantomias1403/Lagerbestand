@@ -28,45 +28,14 @@
 </form>
 
 <h3 class="mt-4">Mix-Komponenten</h3>
-<p class="text-muted">Definiere hier, aus welchen Artikeln ein Mix besteht. Die Bestandsabzüge erfolgen automatisch anhand dieser Liste.</p>
+<p class="text-muted">
+  Mix-Komponenten werden nun pro Artikel gepflegt. Leg die Komponenten bei den jeweiligen Artikeln mit dieser Endung fest.
+  Die Endung definiert weiterhin den Preis für alle zugehörigen Artikel.
+</p>
 {% if ending.components %}
-<table class="table">
-  <thead>
-    <tr>
-      <th>Artikel-SKU</th>
-      <th>Menge pro Mix</th>
-      <th></th>
-    </tr>
-  </thead>
-  <tbody>
-    {% for comp in ending.components %}
-    <tr>
-      <td>{{ comp.component_sku }}</td>
-      <td>{{ comp.component_quantity }}</td>
-      <td>
-        <form method="post" action="{{ url_for('main.delete_ending_component', ending_id=ending.id, component_id=comp.id) }}" onsubmit="return confirm('Komponente entfernen?');">
-          <button type="submit" class="btn btn-sm btn-danger">Entfernen</button>
-        </form>
-      </td>
-    </tr>
-    {% endfor %}
-  </tbody>
-</table>
-{% else %}
-<p class="text-muted">Noch keine Komponenten angelegt.</p>
+<div class="alert alert-warning">
+  Für diese Endung existieren noch alte Komponenten-Einträge. Diese werden weiterhin als Fallback genutzt,
+  sollten jedoch auf die Artikelverwaltung übertragen und hier entfernt werden.
+</div>
 {% endif %}
-
-<form method="post" action="{{ url_for('main.add_ending_component', ending_id=ending.id) }}" class="row g-2 align-items-end">
-  <div class="col-md-6">
-    <label class="form-label">Artikel-SKU</label>
-    <input class="form-control" name="component_sku" required>
-  </div>
-  <div class="col-md-3">
-    <label class="form-label">Menge pro Mix</label>
-    <input class="form-control" type="number" name="component_quantity" min="1" value="1">
-  </div>
-  <div class="col-md-3 d-grid">
-    <button type="submit" class="btn btn-success">Komponente hinzufügen</button>
-  </div>
-</form>
 {% endblock %}
