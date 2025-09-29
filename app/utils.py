@@ -1,6 +1,6 @@
 from flask import current_app
 from . import db
-from .models import Setting, Category, EndingCategory
+from .models import Setting, Category, EndingCategory, Article, ArticleMixComponent
 from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
 from email.message import EmailMessage
 import smtplib
@@ -129,11 +129,17 @@ def get_default_minimum_stock(category: str) -> int:
 
 def price_from_suffix(sku: str, category: str | None = None) -> float | None:
     """Return unit price configured for a specific combination of category and SKU suffix."""
+    article = Article.query.filter_by(sku=sku).first()
     for end in EndingCategory.query.all():
         if sku.endswith(end.suffix) and (category is None or end.category == category):
             price = end.price
             multiplier = end.csv_multiplier or 1
-            if end.components:
+            has_mix_components = False
+            if article and (category is None or article.category == end.category):
+                has_mix_components = article.mix_components.count() > 0
+            if not has_mix_components and end.components:
+                has_mix_components = True
+            if has_mix_components:
                 multiplier = 1
             if multiplier and multiplier > 1:
                 price = price / multiplier
@@ -143,18 +149,39 @@ def price_from_suffix(sku: str, category: str | None = None) -> float | None:
 
 def csv_multiplier_from_suffix(sku: str, category: str | None = None) -> int | None:
     """Return CSV multiplier for a specific combination of category and SKU suffix."""
+    article = Article.query.filter_by(sku=sku).first()
     for end in EndingCategory.query.all():
         if sku.endswith(end.suffix) and (category is None or end.category == category):
-            if end.components:
+            has_mix_components = False
+            if article and (category is None or article.category == end.category):
+                has_mix_components = article.mix_components.count() > 0
+            if not has_mix_components and end.components:
+                has_mix_components = True
+            if has_mix_components:
                 return 1
             return end.csv_multiplier or 1
     return None
 
 def get_mix_components(sku: str, category: str | None = None) -> list[tuple[str, int]]:
     """Return a list of ``(component_sku, quantity)`` tuples for a mix ending."""
+    article = Article.query.filter_by(sku=sku).first()
+    if article and (category is None or article.category == category):
+        components: list[tuple[str, int]] = []
+        for comp in article.mix_components.order_by(ArticleMixComponent.id):
+            sku_value = (comp.component_sku or '').strip()
+            if not sku_value:
+                continue
+            quantity = comp.component_quantity or 1
+            if quantity < 1:
+                quantity = 1
+            components.append((sku_value, quantity))
+        if components:
+            return components
+
+    # Fallback to legacy ending-level configuration for backwards compatibility
     for end in EndingCategory.query.all():
         if sku.endswith(end.suffix) and (category is None or end.category == category):
-            components: list[tuple[str, int]] = []
+            legacy_components: list[tuple[str, int]] = []
             for comp in end.components:
                 sku_value = (comp.component_sku or '').strip()
                 if not sku_value:
@@ -162,9 +189,9 @@ def get_mix_components(sku: str, category: str | None = None) -> list[tuple[str,
                 quantity = comp.component_quantity or 1
                 if quantity < 1:
                     quantity = 1
-                components.append((sku_value, quantity))
-            if components:
-                return components
+                legacy_components.append((sku_value, quantity))
+            if legacy_components:
+                return legacy_components
     return []
 
 
