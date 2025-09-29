@@ -26,6 +26,7 @@ from .models import (
     Category,
     EndingCategory,
     EndingComponent,
+    ArticleMixComponent,
     Message,
     ActivityLog,
     Setting,
@@ -339,7 +340,8 @@ def new_article():
         return redirect(url_for('main.index'))
 
     categories = get_categories()
-    return render_template('article_form.html', categories=categories)
+    endings = EndingCategory.query.order_by(EndingCategory.suffix).all()
+    return render_template('article_form.html', categories=categories, endings=endings)
 
 
 
@@ -371,7 +373,8 @@ def edit_article(article_id):
         flash('Artikel aktualisiert')
         return redirect(url_for('main.index'))
     categories = get_categories()
-    return render_template('article_form.html', article=article, categories=categories)
+    endings = EndingCategory.query.order_by(EndingCategory.suffix).all()
+    return render_template('article_form.html', article=article, categories=categories, endings=endings)
 
 
 @bp.route('/article/<int:article_id>/delete')
@@ -1473,7 +1476,25 @@ def delete_category(category_id):
 def settings_endings():
     endings = EndingCategory.query.order_by(EndingCategory.suffix).all()
     categories = get_categories()
-    return render_template('settings_endings.html', endings=endings, categories=categories)
+    article_overview = {}
+    for ending in endings:
+        matching_articles = Article.query.filter(
+            Article.sku.like(f"%{ending.suffix}"),
+            Article.category == ending.category
+        ).order_by(Article.sku).all()
+        with_components = [a for a in matching_articles if a.mix_components.count() > 0]
+        missing_components = [a for a in matching_articles if a.mix_components.count() == 0]
+        article_overview[ending.id] = {
+            'total': len(matching_articles),
+            'with_components': len(with_components),
+            'missing_skus': [a.sku for a in missing_components],
+        }
+    return render_template(
+        'settings_endings.html',
+        endings=endings,
+        categories=categories,
+        article_overview=article_overview,
+    )
 
 
 @bp.route('/settings/endings/add', methods=['POST'])
@@ -1529,45 +1550,55 @@ def edit_ending(ending_id):
     categories = get_categories()
     return render_template('ending_form.html', ending=ending, categories=categories)
 
-@bp.route('/settings/endings/<int:ending_id>/components/add', methods=['POST'])
+@bp.route('/article/<int:article_id>/mix-components/add', methods=['POST'])
 @login_optional
 @admin_required
-def add_ending_component(ending_id):
-    ending = EndingCategory.query.get_or_404(ending_id)
+def add_article_mix_component(article_id):
+    article = Article.query.get_or_404(article_id)
+    if user_management_enabled() and (not current_user.is_authenticated or not current_user.has_staff_rights()):
+        flash('Keine Rechte zum Bearbeiten')
+        return redirect(url_for('main.edit_article', article_id=article.id))
+
     sku = request.form.get('component_sku', '').strip()
     quantity_raw = request.form.get('component_quantity', '1').strip()
-    if sku:
-        try:
-            quantity = int(quantity_raw)
-        except ValueError:
-            quantity = 1
-        if quantity < 1:
-            quantity = 1
-        existing = next((c for c in ending.components if c.component_sku == sku), None)
-        if existing:
-            existing.component_quantity = quantity
-        else:
-            ending.components.append(EndingComponent(component_sku=sku, component_quantity=quantity))
-        db.session.commit()
-        log_activity(f'Mix-Komponente {sku} für Endung {ending.suffix} aktualisiert')
-        flash('Komponente gespeichert.')
-    else:
+    if not sku:
         flash('Ungültige Komponente.')
-    return redirect(url_for('main.edit_ending', ending_id=ending.id))
+        return redirect(url_for('main.edit_article', article_id=article.id))
+
+    try:
+        quantity = int(quantity_raw)
+    except ValueError:
+        quantity = 1
+    if quantity < 1:
+        quantity = 1
+
+    component = ArticleMixComponent.query.filter_by(article_id=article.id, component_sku=sku).first()
+    if component:
+        component.component_quantity = quantity
+    else:
+        db.session.add(ArticleMixComponent(article_id=article.id, component_sku=sku, component_quantity=quantity))
+    db.session.commit()
+    log_activity(f'Mix-Komponente {sku} für Artikel {article.sku} gespeichert')
+    flash('Komponente gespeichert.')
+    return redirect(url_for('main.edit_article', article_id=article.id))
 
 
-@bp.route('/settings/endings/<int:ending_id>/components/<int:component_id>/delete', methods=['POST'])
+@bp.route('/article/<int:article_id>/mix-components/<int:component_id>/delete', methods=['POST'])
 @login_optional
 @admin_required
-def delete_ending_component(ending_id, component_id):
-    ending = EndingCategory.query.get_or_404(ending_id)
-    component = EndingComponent.query.filter_by(id=component_id, ending_id=ending.id).first()
+def delete_article_mix_component(article_id, component_id):
+    article = Article.query.get_or_404(article_id)
+    if user_management_enabled() and (not current_user.is_authenticated or not current_user.has_staff_rights()):
+        flash('Keine Rechte zum Bearbeiten')
+        return redirect(url_for('main.edit_article', article_id=article.id))
+
+    component = ArticleMixComponent.query.filter_by(id=component_id, article_id=article.id).first()
     if component:
         db.session.delete(component)
         db.session.commit()
-        log_activity(f'Mix-Komponente {component.component_sku} von Endung {ending.suffix} entfernt')
+        log_activity(f'Mix-Komponente {component.component_sku} von Artikel {article.sku} entfernt')
         flash('Komponente entfernt.')
-    return redirect(url_for('main.edit_ending', ending_id=ending.id))
+    return redirect(url_for('main.edit_article', article_id=article.id))
 
 
 @bp.route('/settings/endings/<int:ending_id>/apply', methods=['POST'])
