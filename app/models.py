@@ -50,6 +50,18 @@ class Article(db.Model):
 
     movements = db.relationship('Movement', backref='article', lazy=True, cascade='all, delete-orphan')
 
+class ArticleMixComponent(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    article_id = db.Column(db.Integer, db.ForeignKey('article.id'), nullable=False)
+    component_sku = db.Column(db.String(64), nullable=False)
+    component_quantity = db.Column(db.Integer, default=1)
+
+    article = db.relationship(
+        'Article',
+        backref=db.backref('mix_components', lazy='dynamic', cascade='all, delete-orphan')
+    )
+
+
 
 class Movement(db.Model):
     id = db.Column(db.Integer, primary_key=True)
