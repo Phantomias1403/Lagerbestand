@@ -19,7 +19,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'django.contrib.humanize',
-    'lagerbestand_site.core',
+    'core',
 ]
 
 MIDDLEWARE = [
@@ -45,7 +45,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
-                'lagerbestand_site.core.context_processors.settings_flags',
+                'core.context_processors.settings_flags',
             ],
         },
     },
@@ -58,18 +58,14 @@ ASGI_APPLICATION = 'lagerbestand_site.asgi.application'
 _DB_ENGINE = os.environ.get('DB_ENGINE', 'django.db.backends.mysql')
 if _DB_ENGINE == 'django.db.backends.mysql':
     DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.mysql',
-            'NAME': os.environ.get('DB_NAME', 'lagerbestand'),
-            'USER': os.environ.get('DB_USER', 'lagerbestand'),
-            'PASSWORD': os.environ.get('DB_PASSWORD', ''),
-            'HOST': os.environ.get('DB_HOST', '127.0.0.1'),
-            'PORT': os.environ.get('DB_PORT', '3306'),
-            'OPTIONS': {
-                'charset': 'utf8mb4',
-                'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
-            },
-        }
+    "default": {
+        "ENGINE": "django.db.backends.postgresql",
+        "NAME": os.getenv("DB_NAME", "lagerbestand"),
+        "USER": os.getenv("DB_USER", "lageruser"),
+        "PASSWORD": os.getenv("DB_PASSWORD", "lagerpass"),
+        "HOST": os.getenv("DB_HOST", "postgres"),
+        "PORT": os.getenv("DB_PORT", "5432"),
+    }
     }
 else:
     DATABASES = {
@@ -89,7 +85,7 @@ USE_TZ = True
 
 STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
-STATICFILES_DIRS = [BASE_DIR / 'lagerbestand_site' / 'core' / 'static']
+STATICFILES_DIRS = [BASE_DIR / 'static']
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
