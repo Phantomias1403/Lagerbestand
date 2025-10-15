@@ -1,0 +1,304 @@
+from __future__ import annotations
+
+from typing import Iterable, Sequence
+
+from django.conf import settings
+from django.core.mail import EmailMessage
+from django.db import transaction
+from django.db.models import F
+from django.urls import reverse
+from django.contrib.auth.tokens import PasswordResetTokenGenerator
+from django.template.loader import render_to_string
+
+from . import models
+
+
+def save_category_prefixes(raw: str) -> None:
+    mapping: dict[str, tuple[str, float, int]] = {}
+    for line in raw.splitlines():
+        if ':' not in line:
+            continue
+        parts = [p.strip() for p in line.split(':')]
+        if len(parts) < 2:
+            continue
+        prefix, name = parts[0], parts[1]
+        price = 0.0
+        min_stock = DEFAULT_MIN_STOCK.get(name.lower(), 0)
+        if len(parts) >= 3:
+            try:
+                price = float(parts[2].replace(',', '.'))
+            except ValueError:
+                price = 0.0
+        if len(parts) >= 4:
+            try:
+                min_stock = int(parts[3])
+            except ValueError:
+                min_stock = DEFAULT_MIN_STOCK.get(name.lower(), 0)
+        mapping[prefix] = (name, price, min_stock)
+
+    for prefix, (name, price, min_stock) in mapping.items():
+        category, _ = models.Category.objects.get_or_create(name=name)
+        category.prefix = prefix
+        category.default_price = price
+        category.default_min_stock = min_stock
+        category.save()
+
+
+class TokenGenerator(PasswordResetTokenGenerator):
+    def _make_hash_value(self, user, timestamp):
+        return f"{user.pk}{user.password}{timestamp}"
+
+
+password_reset_token_generator = TokenGenerator()
+
+
+def get_setting(key: str, default: str = '') -> str:
+    try:
+        return models.Setting.objects.get(key=key).value
+    except models.Setting.DoesNotExist:
+        return default
+
+
+def set_setting(key: str, value: str) -> models.Setting:
+    obj, _ = models.Setting.objects.update_or_create(key=key, defaults={'value': value})
+    return obj
+
+
+def user_management_enabled() -> bool:
+    return settings.ENABLE_USER_MANAGEMENT
+
+
+DEFAULT_MIN_STOCK = {
+    'sticker': 1000,
+    'schal': 20,
+    'shirt': 10,
+}
+
+DEFAULT_PREFIX_STRING = 'ST-:Sticker:0:1000\nSC-:Schal:0:20\nSH-:Shirt:0:10'
+
+
+def _get_prefix_definitions() -> dict[str, tuple[models.Category, float, int]]:
+    mapping: dict[str, tuple[models.Category, float, int]] = {}
+    for category in models.Category.objects.all():
+        if category.prefix:
+            mapping[category.prefix] = (
+                category,
+                float(category.default_price or 0),
+                int(category.default_min_stock or DEFAULT_MIN_STOCK.get(category.name.lower(), 0)),
+            )
+    if mapping:
+        return mapping
+
+    raw = get_setting('category_prefixes', DEFAULT_PREFIX_STRING)
+    for line in raw.splitlines():
+        if ':' not in line:
+            continue
+        prefix, name, *rest = [p.strip() for p in line.split(':')]
+        if not prefix or not name:
+            continue
+        category, _ = models.Category.objects.get_or_create(name=name)
+        price = 0.0
+        min_stock = DEFAULT_MIN_STOCK.get(name.lower(), 0)
+        if rest:
+            try:
+                price = float(rest[0].replace(',', '.'))
+            except (ValueError, IndexError):
+                price = 0.0
+        if len(rest) >= 2:
+            try:
+                min_stock = int(rest[1])
+            except ValueError:
+                min_stock = DEFAULT_MIN_STOCK.get(name.lower(), 0)
+        if not category.prefix:
+            category.prefix = prefix
+            category.default_price = price
+            category.default_min_stock = min_stock
+            category.save(update_fields=['prefix', 'default_price', 'default_min_stock'])
+        mapping[prefix] = (category, price, min_stock)
+    return mapping
+
+
+def get_category_prefixes() -> dict[str, models.Category]:
+    return {prefix: cat for prefix, (cat, _, _) in _get_prefix_definitions().items()}
+
+
+def get_categories() -> list[models.Category]:
+    return list(models.Category.objects.order_by('name'))
+
+
+def category_from_sku(sku: str) -> models.Category | None:
+    sku = sku or ''
+    for prefix, category in get_category_prefixes().items():
+        if sku.startswith(prefix):
+            return category
+    return None
+
+
+def price_from_sku(sku: str) -> float | None:
+    for prefix, (category, price, _) in _get_prefix_definitions().items():
+        if sku.startswith(prefix):
+            return price
+    return None
+
+
+def get_default_price(category: models.Category) -> float:
+    return float(category.default_price or 0)
+
+
+def get_default_minimum_stock(category: models.Category) -> int:
+    return int(category.default_min_stock or DEFAULT_MIN_STOCK.get(category.name.lower(), 0))
+
+
+def price_from_suffix(sku: str, category: models.Category | None = None) -> float | None:
+    category = category or category_from_sku(sku)
+    if not category:
+        return None
+
+    try:
+        article = models.Article.objects.get(sku=sku)
+    except models.Article.DoesNotExist:
+        article = None
+
+    for ending in models.EndingCategory.objects.select_related('category').prefetch_related('components').all():
+        if sku.endswith(ending.suffix) and ending.category == category:
+            price = float(ending.price or 0)
+            multiplier = ending.csv_multiplier or 1
+            has_mix_components = False
+            if article and article.category == ending.category:
+                has_mix_components = article.mix_components.exists()
+            if not has_mix_components and ending.components.exists():
+                has_mix_components = True
+            if has_mix_components:
+                multiplier = 1
+            if multiplier and multiplier > 1:
+                price /= multiplier
+            return price
+    return None
+
+
+def csv_multiplier_from_suffix(sku: str, category: models.Category | None = None) -> int | None:
+    category = category or category_from_sku(sku)
+    if not category:
+        return None
+
+    try:
+        article = models.Article.objects.get(sku=sku)
+    except models.Article.DoesNotExist:
+        article = None
+
+    for ending in models.EndingCategory.objects.select_related('category').prefetch_related('components').all():
+        if sku.endswith(ending.suffix) and ending.category == category:
+            has_mix_components = False
+            if article and article.category == ending.category:
+                has_mix_components = article.mix_components.exists()
+            if not has_mix_components and ending.components.exists():
+                has_mix_components = True
+            if has_mix_components:
+                return 1
+            return ending.csv_multiplier or 1
+    return None
+
+
+def get_mix_components(sku: str, category: models.Category | None = None) -> list[tuple[str, int]]:
+    category = category or category_from_sku(sku)
+    components: list[tuple[str, int]] = []
+
+    if category:
+        try:
+            article = models.Article.objects.get(sku=sku, category=category)
+        except models.Article.DoesNotExist:
+            article = None
+        if article:
+            for comp in article.mix_components.order_by('id').all():
+                sku_value = (comp.component_sku or '').strip()
+                if not sku_value:
+                    continue
+                quantity = comp.component_quantity or 1
+                components.append((sku_value, max(1, quantity)))
+            if components:
+                return components
+
+    for ending in models.EndingCategory.objects.select_related('category').prefetch_related('components').all():
+        if sku.endswith(ending.suffix) and (not category or ending.category == category):
+            for comp in ending.components.all():
+                sku_value = (comp.component_sku or '').strip()
+                if not sku_value:
+                    continue
+                quantity = comp.component_quantity or 1
+                components.append((sku_value, max(1, quantity)))
+            break
+    return components
+
+
+def send_email(to: str, subject: str, template: str, context: dict) -> None:
+    body = render_to_string(template, context)
+    email = EmailMessage(subject, body, settings.DEFAULT_FROM_EMAIL, [to])
+    email.content_subtype = 'html'
+    email.send(fail_silently=False)
+
+
+def allocate_stock_for_order(order: models.Order) -> None:
+    """Synchronise article stock with items belonging to *order*."""
+    relevant_status = {'offen', 'bezahlt'}
+    if order.status not in relevant_status:
+        return
+    for item in order.items.select_related('article'):
+        models.Article.objects.filter(pk=item.article_id).update(stock=F('stock') - item.quantity)
+        models.Movement.objects.create(
+            article=item.article,
+            quantity=-item.quantity,
+            movement_type='Warenausgang',
+            note=f'Automatische Reservierung für Bestellung #{order.pk}',
+            order=order,
+        )
+
+
+def import_articles(rows: Iterable[dict[str, str]]) -> None:
+    category_cache: dict[str, models.Category] = {c.name: c for c in models.Category.objects.all()}
+
+    for row in rows:
+        sku = (row.get('sku') or '').strip()
+        if not sku:
+            continue
+        name = (row.get('name') or '').strip()
+        category_name = (row.get('category') or '').strip() or 'Sticker'
+        category = category_cache.get(category_name)
+        if not category:
+            category, _ = models.Category.objects.get_or_create(name=category_name)
+            category_cache[category_name] = category
+
+        article, _ = models.Article.objects.get_or_create(sku=sku, defaults={'name': name, 'category': category})
+        article.name = name or article.name
+        article.category = category
+        try:
+            article.stock = int(row.get('stock') or 0)
+        except ValueError:
+            article.stock = 0
+        try:
+            article.minimum_stock = int(row.get('minimum_stock') or get_default_minimum_stock(category))
+        except ValueError:
+            article.minimum_stock = get_default_minimum_stock(category)
+        article.location_primary = (row.get('location_primary') or '').strip()
+        article.location_secondary = (row.get('location_secondary') or '').strip()
+        price_raw = (row.get('price') or '').replace(',', '.').strip()
+        if price_raw:
+            try:
+                article.price = float(price_raw)
+            except ValueError:
+                article.price = article.price
+        else:
+            price = price_from_suffix(sku, category)
+            if price is None:
+                price = price_from_sku(sku)
+            if price is None:
+                price = get_default_price(category)
+            article.price = price or 0
+        article.save()
+
+
+def generate_password_reset_link(request, user: models.User) -> str:
+    token = password_reset_token_generator.make_token(user)
+    uid = user.pk
+    return request.build_absolute_uri(
+        reverse('password_reset_confirm_custom', args=[uid, token])
+    )

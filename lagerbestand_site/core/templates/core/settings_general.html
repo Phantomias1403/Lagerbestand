@@ -1,0 +1,11 @@
+{% extends 'core/base.html' %}
+{% block title %}Allgemeine Einstellungen{% endblock %}
+{% block content %}
+<h1>Allgemeine Einstellungen</h1>
+<form method="post" class="card card-body">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <button class="btn btn-primary">Speichern</button>
+</form>
+<p class="mt-3 text-muted">Die Benutzerverwaltung wird über die Serverkonfiguration gesteuert.</p>
+{% endblock %}

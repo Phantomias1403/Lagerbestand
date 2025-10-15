@@ -1,0 +1,52 @@
+{% extends 'core/base.html' %}
+{% block title %}Suffix-Regeln{% endblock %}
+{% block content %}
+<h1>Suffix-Regeln</h1>
+<form method="post" class="card card-body mb-4">
+    {% csrf_token %}
+    {{ form.as_p }}
+    {{ formset.management_form }}
+    <h5>Komponenten</h5>
+    {% for form in formset %}
+        <div class="row g-2 mb-2">
+            {% for field in form.visible_fields %}
+                <div class="col">{{ field.label_tag }} {{ field }} {{ field.errors }}</div>
+            {% endfor %}
+            <div class="col-auto">{{ form.DELETE }} <span>Löschen</span></div>
+        </div>
+    {% endfor %}
+    <button class="btn btn-primary">Speichern</button>
+</form>
+<div class="table-responsive">
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>Kategorie</th>
+                <th>Suffix</th>
+                <th>Preis</th>
+                <th>Multiplikator</th>
+                <th>Komponenten</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for ending in endings %}
+            <tr>
+                <td>{{ ending.category.name }}</td>
+                <td>{{ ending.suffix }}</td>
+                <td>{{ ending.price|floatformat:2 }} €</td>
+                <td>{{ ending.csv_multiplier }}</td>
+                <td>
+                    {% for component in ending.components.all %}
+                        <span class="badge bg-secondary">{{ component.component_quantity }}x {{ component.component_sku }}</span>
+                    {% empty %}–{% endfor %}
+                </td>
+                <td><a class="btn btn-sm btn-outline-primary" href="{% url 'settings_endings_edit' ending.pk %}">Bearbeiten</a></td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="6" class="text-center">Keine Regeln vorhanden.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

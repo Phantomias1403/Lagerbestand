@@ -1,0 +1,17 @@
+{% extends 'core/base.html' %}
+{% block title %}Backups{% endblock %}
+{% block content %}
+<h1>Backups</h1>
+<form method="post" enctype="multipart/form-data" class="card card-body mb-3">
+    {% csrf_token %}
+    {{ form.file.label_tag }} {{ form.file }}
+    <div class="form-check">{{ form.include_articles }} {{ form.include_articles.label_tag }}</div>
+    <div class="form-check">{{ form.include_orders }} {{ form.include_orders.label_tag }}</div>
+    <div class="form-check">{{ form.include_settings }} {{ form.include_settings.label_tag }}</div>
+    <button class="btn btn-primary">Importieren</button>
+</form>
+<form method="post" action="{% url 'settings_backup_export' %}">
+    {% csrf_token %}
+    <button class="btn btn-outline-secondary">Backup exportieren</button>
+</form>
+{% endblock %}

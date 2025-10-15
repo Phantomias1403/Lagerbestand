@@ -1,104 +1,49 @@
-import pytest
-from flask import Flask
+from django.test import TestCase
 
-from app import db, login_manager
-from app.models import (
-    Category,
-    EndingCategory,
-    EndingComponent,
-    Article,
-    ArticleMixComponent,
-)
-from app.utils import (
-    _get_prefix_definitions,
-    category_from_sku,
-    price_from_suffix,
-    csv_multiplier_from_suffix,
-    get_default_minimum_stock,
-    generate_reset_token,
-    verify_reset_token,
-    get_mix_components,
-)
+from lagerbestand_site.core import models, utils
 
 
-@pytest.fixture
-def app():
-    app = Flask(__name__)
-    app.config['SECRET_KEY'] = 'test-key'
-    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite://'
-    app.config['TESTING'] = True
+class UtilsTestCase(TestCase):
+    def setUp(self):
+        self.category = models.Category.objects.create(name='Sticker', prefix='ST-', default_price=5.0, default_min_stock=100)
+        self.other = models.Category.objects.create(name='Schal', prefix='SC-', default_price=15.0, default_min_stock=20)
+        self.article = models.Article.objects.create(
+            name='Sticker 1',
+            sku='ST-001',
+            category=self.category,
+            stock=10,
+            minimum_stock=5,
+            price=5.0,
+        )
 
-    db.init_app(app)
-    login_manager.init_app(app)
+    def test_category_from_sku(self):
+        self.assertEqual(utils.category_from_sku('ST-999'), self.category)
+        self.assertIsNone(utils.category_from_sku('XX-001'))
 
-    with app.app_context():
-        db.create_all()
-        for prefix, (name, price, min_stock) in _get_prefix_definitions().items():
-            db.session.add(
-                Category(
-                    name=name,
-                    prefix=prefix,
-                    default_price=price,
-                    default_min_stock=min_stock,
-                )
-            )
-        db.session.commit()
-    yield app
+    def test_price_from_suffix(self):
+        ending = models.EndingCategory.objects.create(category=self.category, suffix='XL', price=20.0, csv_multiplier=2)
+        self.assertEqual(utils.price_from_suffix('ST-001XL', self.category), 10.0)
+        models.EndingComponent.objects.create(ending=ending, component_sku='BASE', component_quantity=2)
+        self.assertEqual(utils.csv_multiplier_from_suffix('ST-001XL', self.category), 1)
 
-    with app.app_context():
-        db.drop_all()
+    def test_import_articles(self):
+        data = [
+            {
+                'name': 'Sticker 2',
+                'sku': 'ST-002',
+                'stock': '5',
+                'category': 'Sticker',
+                'location_primary': 'A1',
+                'location_secondary': 'B1',
+                'minimum_stock': '3',
+                'price': '7.50',
+            }
+        ]
+        utils.import_articles(data)
+        article = models.Article.objects.get(sku='ST-002')
+        self.assertEqual(article.location_primary, 'A1')
+        self.assertEqual(float(article.price), 7.5)
 
-
-def test_category_from_sku(app):
-    with app.app_context():
-        assert category_from_sku('ST-123') == 'Sticker'
-        assert category_from_sku('SC-456') == 'Schal'
-        assert category_from_sku('XX-000') is None
-
-
-def test_price_and_multiplier_from_suffix(app):
-    with app.app_context():
-        assert price_from_suffix('ST-1-XX') is None
-        assert csv_multiplier_from_suffix('ST-1-XX') is None
-
-        end = EndingCategory(category='Sticker', suffix='XX', price=20.0, csv_multiplier=2)
-        db.session.add(end)
-        db.session.commit()
-
-        assert price_from_suffix('ST-1-XX', 'Sticker') == 10.0
-        assert csv_multiplier_from_suffix('ST-1-XX', 'Sticker') == 2
-
-        article = Article(name='Mix', sku='ST-1-XX', category='Sticker', stock=0, price=0.0)
-        db.session.add(article)
-        db.session.commit()
-
-        assert get_mix_components('ST-1-XX', 'Sticker') == []
-
-        comp = ArticleMixComponent(article_id=article.id, component_sku='ST-BASE', component_quantity=3)
-        db.session.add(comp)
-        db.session.commit()
-
-        assert csv_multiplier_from_suffix('ST-1-XX', 'Sticker') == 1
-        assert price_from_suffix('ST-1-XX', 'Sticker') == 20.0
-        assert get_mix_components('ST-1-XX', 'Sticker') == [('ST-BASE', 3)]
-
-        legacy_comp = EndingComponent(ending_id=end.id, component_sku='ST-LEGACY', component_quantity=2)
-        db.session.add(legacy_comp)
-        other = Article(name='Alt', sku='ST-2-XX', category='Sticker', stock=0, price=0.0)
-        db.session.add(other)
-        db.session.commit()
-
-        assert get_mix_components('ST-2-XX', 'Sticker') == [('ST-LEGACY', 2)]
-
-
-def test_get_default_minimum_stock(app):
-    with app.app_context():
-        assert get_default_minimum_stock('Schal') == 20
-        assert get_default_minimum_stock('Unbekannt') == 0
-
-
-def test_generate_and_verify_reset_token(app):
-    with app.app_context():
-        token = generate_reset_token(42)
-        assert verify_reset_token(token) == 42
-        assert verify_reset_token('invalid') is None
+    def test_get_default_minimum_stock(self):
+        self.assertEqual(utils.get_default_minimum_stock(self.category), 100)
+        self.assertEqual(utils.get_default_minimum_stock(self.other), 20)
