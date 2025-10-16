@@ -158,21 +158,11 @@ EndingComponentFormSet = inlineformset_factory(
 )
 
 
-class SettingForm(StyledFormMixin, forms.Form):
-    company_name = forms.CharField(label='Unternehmen', required=False)
-    company_address = forms.CharField(label='Adresse', required=False, widget=forms.Textarea(attrs={'rows': 3}))
-    category_prefixes = forms.CharField(
-        label='SKU-Prefixe',
-        required=False,
-        widget=forms.Textarea(attrs={'rows': 4, 'placeholder': 'ST-:Sticker:0:1000'}),
-    )
-
 
 class BackupImportForm(StyledFormMixin, forms.Form):
     file = forms.FileField(label='Backup-ZIP-Datei')
     include_articles = forms.BooleanField(required=False, initial=True)
     include_orders = forms.BooleanField(required=False, initial=True)
-    include_settings = forms.BooleanField(required=False, initial=True)
 
 
 class MessageForm(StyledFormMixin, forms.ModelForm):
