@@ -31,18 +31,6 @@ class TimestampedModel(models.Model):
         abstract = True
 
 
-class Setting(models.Model):
-    key = models.CharField(max_length=100, unique=True)
-    value = models.CharField(max_length=255)
-
-    class Meta:
-        verbose_name = 'Einstellung'
-        verbose_name_plural = 'Einstellungen'
-
-    def __str__(self) -> str:
-        return f"{self.key}={self.value}"
-
-
 class Category(models.Model):
     name = models.CharField(max_length=100, unique=True)
     prefix = models.CharField(max_length=20, unique=True, blank=True)
