@@ -25,7 +25,6 @@ urlpatterns = [
     path('orders/<int:pk>/edit/', views.OrderEditView.as_view(), name='order_edit'),
     path('orders/<int:pk>/delete/', views.OrderDeleteView.as_view(), name='order_delete'),
 
-    path('settings/general/', views.GeneralSettingsView.as_view(), name='settings_general'),
     path('settings/categories/', views.CategorySettingsView.as_view(), name='settings_categories'),
     path('settings/endings/', views.EndingSettingsView.as_view(), name='settings_endings'),
     path('settings/endings/<int:pk>/', views.EndingSettingsView.as_view(), name='settings_endings_edit'),
