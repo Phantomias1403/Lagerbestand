@@ -43,11 +43,6 @@ class MovementAdmin(admin.ModelAdmin):
     list_filter = ['movement_type', 'created_at']
 
 
-@admin.register(models.Setting)
-class SettingAdmin(admin.ModelAdmin):
-    list_display = ['key', 'value']
-
-
 @admin.register(models.EndingCategory)
 class EndingCategoryAdmin(admin.ModelAdmin):
     list_display = ['category', 'suffix', 'price', 'csv_multiplier']
