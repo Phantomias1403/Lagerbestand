@@ -1,52 +1,124 @@
 {% extends 'core/base.html' %}
 {% block title %}Suffix-Regeln{% endblock %}
 {% block content %}
-<h1>Suffix-Regeln</h1>
-<form method="post" class="card card-body mb-4">
-    {% csrf_token %}
-    {{ form.as_p }}
-    {{ formset.management_form }}
-    <h5>Komponenten</h5>
-    {% for form in formset %}
-        <div class="row g-2 mb-2">
-            {% for field in form.visible_fields %}
-                <div class="col">{{ field.label_tag }} {{ field }} {{ field.errors }}</div>
-            {% endfor %}
-            <div class="col-auto">{{ form.DELETE }} <span>Löschen</span></div>
+<div class="section-heading mb-4">
+    <div class="title-icon">🧩</div>
+    <div>
+        <h1 class="h2 mb-1">Suffix-Regeln</h1>
+        <p class="text-muted mb-0">Definiere Aufschläge und Komponenten für spezielle Varianten deiner Produkte.</p>
+    </div>
+</div>
+
+<div class="row g-4">
+    <div class="col-12 col-xl-5">
+        <div class="glass-inner settings-card h-100">
+            <div class="d-flex justify-content-between align-items-center">
+                <h2 class="h5 mb-0">{{ form.instance.pk|yesno:"Regel bearbeiten,Neue Regel" }}</h2>
+                <span class="chip chip-accent">Suffix-Builder</span>
+            </div>
+            <form method="post" class="settings-form">
+                {% csrf_token %}
+                {% if form.non_field_errors %}
+                    <div class="alert alert-danger">
+                        {{ form.non_field_errors|join:' ' }}
+                    </div>
+                {% endif %}
+                {% for field in form %}
+                    <div class="form-group">
+                        <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+                        {{ field }}
+                        {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
+                        {% for error in field.errors %}<div class="invalid-feedback">{{ error }}</div>{% endfor %}
+                    </div>
+                {% endfor %}
+
+                {{ formset.management_form }}
+                {% if formset.non_form_errors %}
+                    <div class="alert alert-danger">{{ formset.non_form_errors|join:' ' }}</div>
+                {% endif %}
+
+                <div class="settings-components">
+                    <div class="settings-components-header">
+                        <h3 class="h6 text-uppercase text-muted mb-0">Komponenten</h3>
+                        <span class="text-muted small">Füge Bauteile für den automatischen Abzug hinzu.</span>
+                    </div>
+                    {% for component_form in formset %}
+                        {% for hidden in component_form.hidden_fields %}{{ hidden }}{% endfor %}
+                        <div class="settings-component-row">
+                            <div class="row g-3 align-items-end">
+                                {% for field in component_form.visible_fields %}
+                                    {% if field.name != 'DELETE' %}
+                                        <div class="col-sm-6">
+                                            <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+                                            {{ field }}
+                                            {% for error in field.errors %}<div class="invalid-feedback">{{ error }}</div>{% endfor %}
+                                        </div>
+                                    {% endif %}
+                                {% endfor %}
+                                <div class="col-sm-6 col-md-auto ms-auto">
+                                    <div class="form-check form-switch settings-checkbox">
+                                        {{ component_form.DELETE }}
+                                        <label class="form-check-label small text-muted" for="{{ component_form.DELETE.id_for_label }}">Entfernen</label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+
+                <div class="d-flex flex-column flex-sm-row gap-2">
+                    <button class="btn btn-primary px-4">Suffix-Regel speichern</button>
+                </div>
+            </form>
         </div>
-    {% endfor %}
-    <button class="btn btn-primary">Speichern</button>
-</form>
-<div class="table-responsive">
-    <table class="table table-striped">
-        <thead>
-            <tr>
-                <th>Kategorie</th>
-                <th>Suffix</th>
-                <th>Preis</th>
-                <th>Multiplikator</th>
-                <th>Komponenten</th>
-                <th></th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for ending in endings %}
-            <tr>
-                <td>{{ ending.category.name }}</td>
-                <td>{{ ending.suffix }}</td>
-                <td>{{ ending.price|floatformat:2 }} €</td>
-                <td>{{ ending.csv_multiplier }}</td>
-                <td>
-                    {% for component in ending.components.all %}
-                        <span class="badge bg-secondary">{{ component.component_quantity }}x {{ component.component_sku }}</span>
-                    {% empty %}–{% endfor %}
-                </td>
-                <td><a class="btn btn-sm btn-outline-primary" href="{% url 'settings_endings_edit' ending.pk %}">Bearbeiten</a></td>
-            </tr>
-            {% empty %}
-            <tr><td colspan="6" class="text-center">Keine Regeln vorhanden.</td></tr>
-            {% endfor %}
-        </tbody>
-    </table>
+    </div>
+    <div class="col-12 col-xl-7">
+        <div class="glass-inner settings-card h-100">
+            <div class="d-flex justify-content-between align-items-center">
+                <h2 class="h5 mb-0">Vorhandene Regeln</h2>
+                <a class="btn btn-sm btn-outline-secondary" href="{% url 'settings_endings' %}">Neue Regel</a>
+            </div>
+            <div class="table-responsive settings-table-wrapper mt-3">
+                <table class="table table-modern table-striped align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th>Kategorie</th>
+                            <th>Suffix</th>
+                            <th>Preis</th>
+                            <th>Multiplikator</th>
+                            <th>Komponenten</th>
+                            <th class="text-end">Aktionen</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for ending in endings %}
+                            <tr>
+                                <td class="fw-semibold">{{ ending.category.name }}</td>
+                                <td><span class="chip chip-accent">{{ ending.suffix }}</span></td>
+                                <td>{{ ending.price|floatformat:2 }}&nbsp;€</td>
+                                <td>{{ ending.csv_multiplier }}</td>
+                                <td>
+                                    <div class="d-flex flex-wrap gap-2">
+                                        {% for component in ending.components.all %}
+                                            <span class="chip">{{ component.component_quantity }}× {{ component.component_sku }}</span>
+                                        {% empty %}
+                                            <span class="text-muted">–</span>
+                                        {% endfor %}
+                                    </div>
+                                </td>
+                                <td class="text-end">
+                                    <a class="btn btn-sm btn-outline-primary" href="{% url 'settings_endings_edit' ending.pk %}">Bearbeiten</a>
+                                </td>
+                            </tr>
+                        {% empty %}
+                            <tr>
+                                <td colspan="6" class="text-center py-4 text-muted">Keine Regeln vorhanden. Lege deine erste Regel für Varianten an.</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
 </div>
 {% endblock %}
