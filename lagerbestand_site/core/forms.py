@@ -103,8 +103,11 @@ class MovementForm(StyledFormMixin, forms.ModelForm):
         }
 
 
-class CSVImportForm(StyledFormMixin, forms.Form):
-    file = forms.FileField(label='CSV-Datei')
+class CSVImportForm(forms.Form):
+    file = forms.FileField(
+        label="Datei auswählen",
+        widget=forms.ClearableFileInput(attrs={"class": "form-control form-control-lg"})
+    )
 
 
 class OrderForm(StyledFormMixin, forms.ModelForm):
