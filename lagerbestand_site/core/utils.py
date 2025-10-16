@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Iterable, Sequence
+from typing import Iterable
 
 from django.conf import settings
 from django.core.mail import EmailMessage
@@ -11,6 +11,52 @@ from django.contrib.auth.tokens import PasswordResetTokenGenerator
 from django.template.loader import render_to_string
 
 from . import models
+
+
+IMPORT_HEADER_ALIASES = {
+    'artikelnummer': 'sku',
+    'artnr': 'sku',
+    'artikel_nr': 'sku',
+    'bestand': 'stock',
+    'bestandsmenge': 'stock',
+    'menge': 'stock',
+    'mindestbestand': 'minimum_stock',
+    'mindesbestand': 'minimum_stock',
+    'min_stock': 'minimum_stock',
+    'kategorie': 'category',
+    'bezeichnung': 'name',
+    'hauptlager': 'location_primary',
+    'lagerplatz': 'location_primary',
+    'lager': 'location_primary',
+    'nebenlager': 'location_secondary',
+    'zusatzlager': 'location_secondary',
+    'preis': 'price',
+    'vk': 'price',
+    'verkaufspreis': 'price',
+}
+
+
+def normalise_import_header(header: str | None) -> str:
+    if not header:
+        return ''
+    cleaned = header.strip().lower()
+    for ch in (' ', '-', '.', '\\t'):
+        cleaned = cleaned.replace(ch, '_')
+    cleaned = cleaned.replace('__', '_').strip('_')
+    return IMPORT_HEADER_ALIASES.get(cleaned, cleaned)
+
+
+def normalise_import_row(row: dict[str, str]) -> dict[str, str]:
+    normalised: dict[str, str] = {}
+    for key, value in row.items():
+        normalised_key = normalise_import_header(key)
+        if not normalised_key:
+            continue
+        if isinstance(value, str):
+            normalised[normalised_key] = value.strip()
+        else:
+            normalised[normalised_key] = value
+    return normalised
 
 
 def save_category_prefixes(raw: str) -> None:
@@ -253,10 +299,13 @@ def allocate_stock_for_order(order: models.Order) -> None:
         )
 
 
-def import_articles(rows: Iterable[dict[str, str]]) -> None:
+def import_articles(rows: Iterable[dict[str, str]]) -> tuple[int, int]:
     category_cache: dict[str, models.Category] = {c.name: c for c in models.Category.objects.all()}
+    created = 0
+    updated = 0
 
-    for row in rows:
+    for raw_row in rows:
+        row = normalise_import_row(raw_row)
         sku = (row.get('sku') or '').strip()
         if not sku:
             continue
@@ -267,25 +316,38 @@ def import_articles(rows: Iterable[dict[str, str]]) -> None:
             category, _ = models.Category.objects.get_or_create(name=category_name)
             category_cache[category_name] = category
 
-        article, _ = models.Article.objects.get_or_create(sku=sku, defaults={'name': name, 'category': category})
+        article, was_created = models.Article.objects.get_or_create(
+            sku=sku,
+            defaults={'name': name or sku, 'category': category},
+        )
+        if was_created:
+            created += 1
+        else:
+            updated += 1
+
         article.name = name or article.name
         article.category = category
         try:
             article.stock = int(row.get('stock') or 0)
-        except ValueError:
+        except (TypeError, ValueError):
             article.stock = 0
         try:
             article.minimum_stock = int(row.get('minimum_stock') or get_default_minimum_stock(category))
-        except ValueError:
+        except (TypeError, ValueError):
             article.minimum_stock = get_default_minimum_stock(category)
         article.location_primary = (row.get('location_primary') or '').strip()
         article.location_secondary = (row.get('location_secondary') or '').strip()
-        price_raw = (row.get('price') or '').replace(',', '.').strip()
-        if price_raw:
+        price_raw = (row.get('price') or '')
+        if isinstance(price_raw, str):
+            price_clean = price_raw.replace('€', '').replace('EUR', '').strip()
+            price_clean = price_clean.replace(',', '.').replace(' ', '')
+        else:
+            price_clean = ''
+        if price_clean:
             try:
-                article.price = float(price_raw)
+                article.price = float(price_clean)
             except ValueError:
-                article.price = article.price
+                pass
         else:
             price = price_from_suffix(sku, category)
             if price is None:
@@ -294,6 +356,8 @@ def import_articles(rows: Iterable[dict[str, str]]) -> None:
                 price = get_default_price(category)
             article.price = price or 0
         article.save()
+
+    return created, updated
 
 
 def generate_password_reset_link(request, user: models.User) -> str:

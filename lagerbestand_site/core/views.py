@@ -260,12 +260,37 @@ class CSVImportView(OptionalLoginRequiredMixin, FormView):
         stream = io.StringIO(text)
         reader = csv.DictReader(stream)
         required = {'name', 'sku', 'stock'}
-        if not reader.fieldnames or not required.issubset(set(reader.fieldnames)):
+
+        def normalised_headers(fieldnames):
+            return {
+                utils.normalise_import_header(name)
+                for name in (fieldnames or [])
+                if utils.normalise_import_header(name)
+            }
+
+        normalised = normalised_headers(reader.fieldnames)
+        if not required.issubset(normalised):
             stream.seek(0)
             reader = csv.DictReader(stream, delimiter=';')
-        utils.import_articles(reader)
+            normalised = normalised_headers(reader.fieldnames)
+
+        if not required.issubset(normalised):
+            missing = ', '.join(sorted(required - normalised))
+            messages.error(self.request, f'Die Datei enthält nicht alle benötigten Spalten ({missing}).')
+            return redirect('import_csv')
+
+        try:
+            with transaction.atomic():
+                created, updated = utils.import_articles(reader)
+        except Exception as exc:  # pragma: no cover - defensive
+            messages.error(self.request, f'Import fehlgeschlagen: {exc}')
+            return redirect('import_csv')
+
         log_activity(self.request, 'CSV-Import durchgeführt')
-        messages.success(self.request, 'Import abgeschlossen')
+        if created or updated:
+            messages.success(self.request, f'Import abgeschlossen: {created} neu, {updated} aktualisiert.')
+        else:
+            messages.info(self.request, 'Die Datei enthielt keine neuen Artikel.')
         return redirect('dashboard')
 
 
