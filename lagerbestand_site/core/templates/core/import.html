@@ -20,7 +20,8 @@
                 {% endif %}
                 <div class="mb-3">
                     <label class="form-label" for="id_file">Datei auswählen</label>
-                    {{ form.file.as_widget(attrs={'class': 'form-control form-control-lg'}) }}
+                    {{ form.file }}
+
                     {% if form.file.errors %}
                         <div class="text-danger small mt-2">{{ form.file.errors|striptags }}</div>
                     {% endif %}
