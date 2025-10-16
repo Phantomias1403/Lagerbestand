@@ -55,6 +55,12 @@
                                 <td>{{ category.default_min_stock }}</td>
                                 <td class="text-end">
                                     <a class="btn btn-sm btn-outline-primary" href="{% url 'settings_categories' %}?pk={{ category.pk }}">Bearbeiten</a>
+                                    <form method="post" class="d-inline">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="pk" value="{{ category.pk }}">
+                                        <input type="hidden" name="action" value="apply">
+                                        <button class="btn btn-sm btn-outline-success mt-2 mt-lg-0">Auf alle Artikel anwenden</button>
+                                    </form>
                                 </td>
                             </tr>
                         {% empty %}
