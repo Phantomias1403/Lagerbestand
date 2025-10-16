@@ -235,7 +235,13 @@ def apply_category_defaults(category: models.Category) -> int:
     price_value = category.default_price if category.default_price is not None else 0
 
     updated = 0
-    for article in models.Article.objects.filter(sku__startswith=prefix):
+    prefix_lower = prefix.lower()
+    for article in models.Article.objects.all().only(
+        'id', 'sku', 'category', 'minimum_stock', 'price'
+    ).iterator():
+        sku_value = (article.sku or '').strip()
+        if not sku_value.lower().startswith(prefix_lower):
+            continue
         fields_to_update: list[str] = []
         if article.category_id != category.id:
             article.category = category
