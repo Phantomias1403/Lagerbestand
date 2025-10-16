@@ -47,7 +47,7 @@
         <thead>
             <tr>
                 <th scope="col">SKU</th>
-                <th scope="col">Name</th>
+                <th scope="col">Lagerorte</th>
                 <th scope="col">Kategorie</th>
                 <th scope="col">Bestand</th>
                 <th scope="col">Mindestbestand</th>
@@ -59,7 +59,12 @@
             {% for article in articles %}
                 <tr class="{% if article.stock < article.minimum_stock %}table-danger{% endif %}">
                     <td class="fw-medium">{{ article.sku }}</td>
-                    <td>{{ article.name }}</td>
+                    <td>
+                        <div class="fw-medium">{{ article.location_primary|default:'-' }}</div>
+                        {% if article.location_secondary %}
+                            <div class="text-muted small">{{ article.location_secondary }}</div>
+                        {% endif %}
+                    </td>
                     <td>{{ article.category.name }}</td>
                     <td>
                         {% if article.stock < article.minimum_stock %}
