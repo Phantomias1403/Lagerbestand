@@ -34,36 +34,43 @@
 }
 
 :root[data-theme="dark"] {
-    --surface: rgba(15, 23, 42, 0.82);
-    --surface-strong: rgba(15, 23, 42, 0.9);
-    --surface-muted: rgba(15, 23, 42, 0.68);
-    --surface-subtle: rgba(30, 41, 59, 0.72);
-    --text-color: #e2e8f0;
-    --text-muted: #94a3b8;
-    --border-color: rgba(148, 163, 184, 0.25);
-    --shadow-soft: 0 24px 48px rgba(15, 23, 42, 0.55);
-    --input-bg: rgba(15, 23, 42, 0.88);
-    --input-border: rgba(148, 163, 184, 0.42);
-    --input-focus-ring: rgba(129, 140, 248, 0.35);
-    --interactive-hover: rgba(99, 102, 241, 0.24);
-    --interactive-active: rgba(79, 70, 229, 0.32);
-    --body-background: linear-gradient(135deg, rgba(15, 23, 42, 0.95), rgba(30, 64, 175, 0.85));
-    --navbar-bg: linear-gradient(135deg, rgba(30, 58, 138, 0.98), rgba(76, 29, 149, 0.98));
-    --navbar-border-color: rgba(148, 163, 184, 0.25);
+    --surface: rgba(37, 48, 73, 0.82);
+    --surface-strong: rgba(45, 58, 87, 0.9);
+    --surface-muted: rgba(59, 73, 102, 0.72);
+    --surface-subtle: rgba(74, 92, 126, 0.72);
+    --text-color: #f1f5f9;
+    --text-muted: #cbd5f5;
+    --border-color: rgba(148, 163, 184, 0.32);
+    --shadow-soft: 0 24px 48px rgba(15, 23, 42, 0.38);
+    --input-bg: rgba(59, 73, 102, 0.68);
+    --input-border: rgba(148, 163, 184, 0.45);
+    --input-focus-ring: rgba(148, 163, 248, 0.45);
+    --interactive-hover: rgba(129, 140, 248, 0.2);
+    --interactive-active: rgba(99, 102, 241, 0.3);
+    --body-background: linear-gradient(135deg, rgba(37, 56, 115, 0.55), rgba(14, 116, 179, 0.45));
+    --navbar-bg: linear-gradient(135deg, rgba(62, 80, 148, 0.95), rgba(103, 76, 182, 0.9));
+    --navbar-border-color: rgba(148, 163, 184, 0.32);
     --navbar-link-color: #f8fafc;
-    --dropdown-bg: rgba(15, 23, 42, 0.96);
-    --dropdown-hover-bg: rgba(99, 102, 241, 0.25);
-    --footer-bg: linear-gradient(135deg, rgba(30, 41, 59, 0.96), rgba(15, 23, 42, 0.96));
-    --footer-text: #e2e8f0;
-    --badge-bg: rgba(129, 140, 248, 0.25);
+    --dropdown-bg: rgba(45, 58, 87, 0.95);
+    --dropdown-hover-bg: rgba(129, 140, 248, 0.25);
+    --footer-bg: linear-gradient(135deg, rgba(51, 65, 92, 0.95), rgba(30, 41, 67, 0.95));
+    --footer-text: #eef2ff;
+    --badge-bg: rgba(148, 163, 248, 0.28);
     --badge-text: #ede9fe;
-    --table-head-bg: rgba(148, 163, 184, 0.12);
-    --table-hover-bg: rgba(99, 102, 241, 0.18);
-    --table-striped-bg: rgba(99, 102, 241, 0.1);
-    --table-striped-bg-alt: rgba(79, 70, 229, 0.14);
-    --table-danger-bg: rgba(239, 68, 68, 0.18);
-    --glass-accent: rgba(129, 140, 248, 0.35);
+    --table-head-bg: rgba(148, 163, 184, 0.18);
+    --table-hover-bg: rgba(148, 163, 248, 0.2);
+    --table-striped-bg: rgba(129, 140, 248, 0.12);
+    --table-striped-bg-alt: rgba(99, 102, 241, 0.16);
+    --table-danger-bg: rgba(239, 68, 68, 0.22);
+    --glass-accent: rgba(148, 163, 248, 0.42);
 }
+/* 🎨 Nur Tabellen-Text im Darkmode anpassen */
+:root[data-theme="dark"] .table th,
+:root[data-theme="dark"] .table td {
+    color: #e2e8f0; /* etwas weicheres Hellgrau, gut lesbar auf dunklem Grund */
+}
+
+
 
 body {
     min-height: 100vh;
