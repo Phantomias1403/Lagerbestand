@@ -397,9 +397,22 @@ class CategorySettingsView(OptionalLoginRequiredMixin, View):
 
     def post(self, request: HttpRequest) -> HttpResponse:
         category_id = request.POST.get('pk')
+        action = request.POST.get('action')
         instance = None
         if category_id:
             instance = get_object_or_404(models.Category, pk=category_id)
+
+        if action == 'apply' and instance:
+            if not instance.prefix:
+                messages.error(request, 'Kategorie besitzt keinen Prefix und kann nicht angewendet werden.')
+            else:
+                updated = utils.apply_category_defaults(instance)
+                if updated:
+                    messages.success(request, f'{updated} Artikel aktualisiert.')
+                else:
+                    messages.info(request, 'Keine Artikel mit diesem Prefix gefunden.')
+            return redirect('settings_categories')
+
         form = forms.CategoryForm(request.POST, instance=instance)
         if form.is_valid():
             form.save()
@@ -435,28 +448,6 @@ class EndingSettingsView(OptionalLoginRequiredMixin, View):
             return redirect('settings_endings')
         endings = models.EndingCategory.objects.select_related('category').all()
         return render(request, self.template_name, {'form': form, 'formset': formset, 'endings': endings, 'ending': self.ending})
-
-
-class GeneralSettingsView(OptionalLoginRequiredMixin, FormView):
-    template_name = 'core/settings_general.html'
-    form_class = forms.SettingForm
-
-    def get_initial(self):
-        initial = super().get_initial()
-        initial['company_name'] = utils.get_setting('company_name', '')
-        initial['company_address'] = utils.get_setting('company_address', '')
-        initial['category_prefixes'] = utils.get_setting('category_prefixes', utils.DEFAULT_PREFIX_STRING)
-        return initial
-
-    def form_valid(self, form):
-        utils.set_setting('company_name', form.cleaned_data.get('company_name', ''))
-        utils.set_setting('company_address', form.cleaned_data.get('company_address', ''))
-        prefixes = form.cleaned_data.get('category_prefixes', '')
-        utils.set_setting('category_prefixes', prefixes)
-        if prefixes:
-            utils.save_category_prefixes(prefixes)
-        messages.success(self.request, 'Einstellungen gespeichert')
-        return redirect('settings_general')
 
 
 class BackupExportView(OptionalLoginRequiredMixin, View):
@@ -522,13 +513,6 @@ class BackupExportView(OptionalLoginRequiredMixin, View):
                     movement.order_id or '',
                 ])
             archive.writestr('movements.csv', output.getvalue())
-
-            output = io.StringIO()
-            writer = csv.writer(output)
-            writer.writerow(['key', 'value'])
-            for setting in models.Setting.objects.all():
-                writer.writerow([setting.key, setting.value])
-            archive.writestr('settings.csv', output.getvalue())
 
         zip_buffer.seek(0)
         response = HttpResponse(zip_buffer.read(), content_type='application/zip')
@@ -634,13 +618,6 @@ class BackupImportView(OptionalLoginRequiredMixin, FormView):
                                 pass
                     except KeyError:
                         pass
-                except KeyError:
-                    pass
-            if form.cleaned_data.get('include_settings'):
-                try:
-                    text = archive.read('settings.csv').decode('utf-8')
-                    for row in csv.DictReader(io.StringIO(text)):
-                        utils.set_setting(row.get('key', ''), row.get('value', ''))
                 except KeyError:
                     pass
 
