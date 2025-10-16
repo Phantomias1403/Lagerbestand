@@ -58,56 +58,12 @@ def normalise_import_row(row: dict[str, str]) -> dict[str, str]:
             normalised[normalised_key] = value
     return normalised
 
-
-def save_category_prefixes(raw: str) -> None:
-    mapping: dict[str, tuple[str, float, int]] = {}
-    for line in raw.splitlines():
-        if ':' not in line:
-            continue
-        parts = [p.strip() for p in line.split(':')]
-        if len(parts) < 2:
-            continue
-        prefix, name = parts[0], parts[1]
-        price = 0.0
-        min_stock = DEFAULT_MIN_STOCK.get(name.lower(), 0)
-        if len(parts) >= 3:
-            try:
-                price = float(parts[2].replace(',', '.'))
-            except ValueError:
-                price = 0.0
-        if len(parts) >= 4:
-            try:
-                min_stock = int(parts[3])
-            except ValueError:
-                min_stock = DEFAULT_MIN_STOCK.get(name.lower(), 0)
-        mapping[prefix] = (name, price, min_stock)
-
-    for prefix, (name, price, min_stock) in mapping.items():
-        category, _ = models.Category.objects.get_or_create(name=name)
-        category.prefix = prefix
-        category.default_price = price
-        category.default_min_stock = min_stock
-        category.save()
-
-
 class TokenGenerator(PasswordResetTokenGenerator):
     def _make_hash_value(self, user, timestamp):
         return f"{user.pk}{user.password}{timestamp}"
 
 
 password_reset_token_generator = TokenGenerator()
-
-
-def get_setting(key: str, default: str = '') -> str:
-    try:
-        return models.Setting.objects.get(key=key).value
-    except models.Setting.DoesNotExist:
-        return default
-
-
-def set_setting(key: str, value: str) -> models.Setting:
-    obj, _ = models.Setting.objects.update_or_create(key=key, defaults={'value': value})
-    return obj
 
 
 def user_management_enabled() -> bool:
@@ -120,47 +76,18 @@ DEFAULT_MIN_STOCK = {
     'shirt': 10,
 }
 
-DEFAULT_PREFIX_STRING = 'ST-:Sticker:0:1000\nSC-:Schal:0:20\nSH-:Shirt:0:10'
-
 
 def _get_prefix_definitions() -> dict[str, tuple[models.Category, float, int]]:
     mapping: dict[str, tuple[models.Category, float, int]] = {}
     for category in models.Category.objects.all():
-        if category.prefix:
-            mapping[category.prefix] = (
-                category,
-                float(category.default_price or 0),
-                int(category.default_min_stock or DEFAULT_MIN_STOCK.get(category.name.lower(), 0)),
-            )
-    if mapping:
-        return mapping
-
-    raw = get_setting('category_prefixes', DEFAULT_PREFIX_STRING)
-    for line in raw.splitlines():
-        if ':' not in line:
+        prefix = (category.prefix or '').strip()
+        if not prefix:
             continue
-        prefix, name, *rest = [p.strip() for p in line.split(':')]
-        if not prefix or not name:
-            continue
-        category, _ = models.Category.objects.get_or_create(name=name)
-        price = 0.0
-        min_stock = DEFAULT_MIN_STOCK.get(name.lower(), 0)
-        if rest:
-            try:
-                price = float(rest[0].replace(',', '.'))
-            except (ValueError, IndexError):
-                price = 0.0
-        if len(rest) >= 2:
-            try:
-                min_stock = int(rest[1])
-            except ValueError:
-                min_stock = DEFAULT_MIN_STOCK.get(name.lower(), 0)
-        if not category.prefix:
-            category.prefix = prefix
-            category.default_price = price
-            category.default_min_stock = min_stock
-            category.save(update_fields=['prefix', 'default_price', 'default_min_stock'])
-        mapping[prefix] = (category, price, min_stock)
+        mapping[prefix] = (
+            category,
+            float(category.default_price or 0),
+            int(category.default_min_stock or DEFAULT_MIN_STOCK.get(category.name.lower(), 0)),
+        )
     return mapping
 
 
@@ -299,8 +226,39 @@ def allocate_stock_for_order(order: models.Order) -> None:
         )
 
 
+def apply_category_defaults(category: models.Category) -> int:
+    prefix = (category.prefix or '').strip()
+    if not prefix:
+        return 0
+
+    minimum_stock = get_default_minimum_stock(category)
+    price_value = category.default_price if category.default_price is not None else 0
+
+    updated = 0
+    for article in models.Article.objects.filter(sku__startswith=prefix):
+        fields_to_update: list[str] = []
+        if article.category_id != category.id:
+            article.category = category
+            fields_to_update.append('category')
+        if article.minimum_stock != minimum_stock:
+            article.minimum_stock = minimum_stock
+            fields_to_update.append('minimum_stock')
+        if article.price != price_value:
+            article.price = price_value
+            fields_to_update.append('price')
+        if fields_to_update:
+            article.save(update_fields=fields_to_update)
+            updated += 1
+    return updated
+
+
+
 def import_articles(rows: Iterable[dict[str, str]]) -> tuple[int, int]:
-    category_cache: dict[str, models.Category] = {c.name: c for c in models.Category.objects.all()}
+    categories = list(models.Category.objects.all())
+    category_cache: dict[str, models.Category] = {c.name: c for c in categories}
+    prefix_cache: dict[str, models.Category] = {
+        c.prefix: c for c in categories if c.prefix
+    }
     created = 0
     updated = 0
 
@@ -310,11 +268,31 @@ def import_articles(rows: Iterable[dict[str, str]]) -> tuple[int, int]:
         if not sku:
             continue
         name = (row.get('name') or '').strip()
-        category_name = (row.get('category') or '').strip() or 'Sticker'
-        category = category_cache.get(category_name)
-        if not category:
-            category, _ = models.Category.objects.get_or_create(name=category_name)
-            category_cache[category_name] = category
+        category_name = (row.get('category') or '').strip()
+
+        category = None
+        if category_name:
+            category = category_cache.get(category_name)
+            if not category:
+                category, _ = models.Category.objects.get_or_create(name=category_name)
+                category_cache[category_name] = category
+                if category.prefix:
+                    prefix_cache[category.prefix] = category
+
+        if category is None:
+            for prefix, cached_category in prefix_cache.items():
+                if sku.startswith(prefix):
+                    category = cached_category
+                    break
+
+        if category is None:
+            default_name = 'Sticker'
+            category = category_cache.get(default_name)
+            if not category:
+                category, _ = models.Category.objects.get_or_create(name=default_name)
+                category_cache[default_name] = category
+                if category.prefix:
+                    prefix_cache[category.prefix] = category
 
         article, was_created = models.Article.objects.get_or_create(
             sku=sku,
