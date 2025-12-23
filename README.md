@@ -39,6 +39,22 @@ Hostinger-kompatible Architektur umgestellt.
    python lagerbestand_site/manage.py runserver
    ```
 
+### SQLite-Schnellstart (lokal)
+Für einen schnellen lokalen Start ohne Datenbank-Setup kannst du SQLite nutzen. Dadurch entfällt die Host-Auflösung auf „postgres“.
+
+* Windows PowerShell:
+  ```powershell
+  $env:DB_ENGINE="django.db.backends.sqlite3"; python lagerbestand_site/manage.py migrate; python lagerbestand_site/manage.py runserver
+  ```
+* Windows-Eingabeaufforderung (cmd):
+  ```cmd
+  set DB_ENGINE=django.db.backends.sqlite3 && python lagerbestand_site/manage.py migrate && python lagerbestand_site/manage.py runserver
+  ```
+* macOS/Linux:
+  ```bash
+  DB_ENGINE=django.db.backends.sqlite3 python lagerbestand_site/manage.py migrate && python lagerbestand_site/manage.py runserver
+  ```
+
 ## Tests
 
 Die Anwendung verwendet Django-Tests. Sie lassen sich mit folgendem Befehl
