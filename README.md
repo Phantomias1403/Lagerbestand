@@ -74,3 +74,20 @@ python lagerbestand_site/manage.py test
 
 Weitere Details zur Konfiguration der Lagerlogik finden sich im Code der
 Applikation innerhalb des Verzeichnisses `lagerbestand_site/core`.
+
+## Amazon-Bestellungen (SP-API)
+
+* Neue Modelle und Admin-Ansichten befinden sich im App-Modul `lagerbestand_site/amazon`.
+* Import-Logik und Management Command: `python lagerbestand_site/manage.py import_amazon_orders`.
+* Die importierten Amazon-Bestellungen werden in der bestehenden Bestellübersicht angezeigt.
+
+Erforderliche Umgebungsvariablen (siehe `.env.example`):
+
+```
+AMAZON_CLIENT_ID
+AMAZON_CLIENT_SECRET
+AMAZON_REFRESH_TOKEN
+AWS_ACCESS_KEY_ID
+AWS_SECRET_ACCESS_KEY
+AWS_ROLE_ARN
+```

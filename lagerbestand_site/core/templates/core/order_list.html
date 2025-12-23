@@ -40,4 +40,34 @@
         </tbody>
     </table>
 </div>
+
+<h2 class="mt-4">Amazon-Bestellungen</h2>
+<div class="table-responsive">
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>Amazon Order ID</th>
+                <th>Marktplatz</th>
+                <th>Status</th>
+                <th>Datum</th>
+                <th>Gesamt</th>
+                <th>Zielland</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for order in amazon_orders %}
+            <tr>
+                <td>{{ order.amazon_order_id }}</td>
+                <td>{{ order.marketplace.name }}</td>
+                <td>{{ order.order_status }}</td>
+                <td>{{ order.purchase_date|date:"d.m.Y H:i" }}</td>
+                <td>{{ order.order_total_amount|floatformat:2 }} {{ order.order_total_currency }}</td>
+                <td>{{ order.ship_to_country }}</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="6" class="text-center">Keine Amazon-Bestellungen vorhanden.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
 {% endblock %}

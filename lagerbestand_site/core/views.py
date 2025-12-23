@@ -19,6 +19,8 @@ from django.views.generic.base import RedirectView
 from django.db import transaction
 from django.db.models import Q, F
 
+from amazon.models import AmazonOrder
+
 from . import forms, models, utils
 
 User = get_user_model()
@@ -321,6 +323,11 @@ class OrderListView(OptionalLoginRequiredMixin, ListView):
 
     def get_queryset(self):
         return models.Order.objects.select_related('user').prefetch_related('items__article').all()
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['amazon_orders'] = AmazonOrder.objects.select_related('marketplace').prefetch_related('items')
+        return context
 
 
 class OrderDetailView(OptionalLoginRequiredMixin, DetailView):
