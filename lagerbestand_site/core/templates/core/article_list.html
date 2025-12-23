@@ -1,0 +1,29 @@
+{% extends 'core/base.html' %}
+{% block title %}Artikel{% endblock %}
+{% block content %}
+<h1>Artikel</h1>
+<div class="table-responsive">
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>SKU</th>
+                <th>Name</th>
+                <th>Kategorie</th>
+                <th>Bestand</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for article in articles %}
+            <tr>
+                <td>{{ article.sku }}</td>
+                <td>{{ article.name }}</td>
+                <td>{{ article.category.name }}</td>
+                <td>{{ article.stock }}</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="4" class="text-center">Keine Artikel vorhanden.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

@@ -1,0 +1,45 @@
+{% extends 'core/base.html' %}
+{% block title %}CSV Import{% endblock %}
+{% block content %}
+<div class="section-heading mb-4">
+    <div class="title-icon">⬆️</div>
+    <div>
+        <h1 class="h2 mb-1">Artikel importieren</h1>
+        <p class="text-muted mb-0">Importiere Bestände schnell per CSV-Datei und aktualisiere dein Lager in einem Schritt.</p>
+    </div>
+</div>
+<div class="row g-4">
+    <div class="col-lg-7">
+        <div class="glass-inner h-100">
+            <h2 class="h4 mb-3">CSV-Datei hochladen</h2>
+            <p class="text-muted">Wähle deine Datei aus. Das System erkennt automatisch UTF-8 und Latin-1 Kodierungen sowie Komma- oder Semikolon-Trennzeichen.</p>
+            <form method="post" enctype="multipart/form-data" class="mt-4">
+                {% csrf_token %}
+                {% if form.non_field_errors %}
+                    <div class="alert alert-danger">{{ form.non_field_errors }}</div>
+                {% endif %}
+                <div class="mb-3">
+                    <label class="form-label" for="id_file">Datei auswählen</label>
+                    {{ form.file }}
+
+                    {% if form.file.errors %}
+                        <div class="text-danger small mt-2">{{ form.file.errors|striptags }}</div>
+                    {% endif %}
+                </div>
+                <button class="btn btn-primary btn-lg px-4">Import starten</button>
+            </form>
+        </div>
+    </div>
+    <div class="col-lg-5">
+        <div class="glass-inner h-100">
+            <h2 class="h5 mb-3">Format &amp; Tipps</h2>
+            <ul class="list-unstyled text-muted small mb-0">
+                <li class="mb-2">• Pflichtspalten: <code>name</code>, <code>sku</code>, <code>stock</code></li>
+                <li class="mb-2">• Weitere Spalten werden automatisch erkannt: <code>category</code>, <code>minimum_stock</code>, <code>price</code>, <code>location_primary</code>, <code>location_secondary</code></li>
+                <li class="mb-2">• Preise mit Komma, Punkt oder €-Symbol werden unterstützt.</li>
+                <li>• Unbekannte Kategorien werden automatisch angelegt.</li>
+            </ul>
+        </div>
+    </div>
+</div>
+{% endblock %}

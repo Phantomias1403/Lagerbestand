@@ -1,0 +1,30 @@
+{% extends 'core/base.html' %}
+{% block title %}Bestellung{% endblock %}
+{% block content %}
+<h1>{% if order %}Bestellung bearbeiten{% else %}Bestellung anlegen{% endif %}</h1>
+<form method="post">
+    {% csrf_token %}
+    <div class="card mb-3">
+        <div class="card-body">
+            {{ form.as_p }}
+        </div>
+    </div>
+    <div class="card">
+        <div class="card-header">Positionen</div>
+        <div class="card-body">
+            {{ formset.management_form }}
+            {% for form in formset %}
+                <div class="row g-3 align-items-end mb-2">
+                    {% for field in form.visible_fields %}
+                        <div class="col">{{ field.label_tag }} {{ field }} {{ field.errors }}</div>
+                    {% endfor %}
+                    {% if form.can_delete %}
+                        <div class="col-auto">{{ form.DELETE }} <span>Löschen</span></div>
+                    {% endif %}
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+    <button class="btn btn-primary mt-3">Speichern</button>
+</form>
+{% endblock %}

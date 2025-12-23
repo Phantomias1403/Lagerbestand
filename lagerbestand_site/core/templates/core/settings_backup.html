@@ -1,0 +1,61 @@
+{% extends 'core/base.html' %}
+{% block title %}Backups{% endblock %}
+{% block content %}
+<div class="section-heading mb-4">
+    <div class="title-icon">💾</div>
+    <div>
+        <h1 class="h2 mb-1">Backups</h1>
+        <p class="text-muted mb-0">Sichere deine Daten oder spiele bestehende Stände komfortabel wieder ein.</p>
+    </div>
+</div>
+
+<div class="row g-4">
+    <div class="col-12 col-xl-7">
+        <div class="glass-inner settings-card h-100">
+            <h2 class="h5 mb-0">Backup importieren</h2>
+            <form method="post" enctype="multipart/form-data" class="settings-form">
+                {% csrf_token %}
+                {% if form.non_field_errors %}
+                    <div class="alert alert-danger">{{ form.non_field_errors|join:' ' }}</div>
+                {% endif %}
+                <div class="form-group">
+                    <label class="form-label" for="{{ form.file.id_for_label }}">{{ form.file.label }}</label>
+                    {{ form.file }}
+                    {% for error in form.file.errors %}<div class="invalid-feedback">{{ error }}</div>{% endfor %}
+                </div>
+                <div class="d-grid gap-2">
+                    <div class="form-check form-switch settings-checkbox">
+                        {{ form.include_articles }}
+                        <label class="form-check-label" for="{{ form.include_articles.id_for_label }}">{{ form.include_articles.label }}</label>
+                    </div>
+                    <div class="form-check form-switch settings-checkbox">
+                        {{ form.include_orders }}
+                        <label class="form-check-label" for="{{ form.include_orders.id_for_label }}">{{ form.include_orders.label }}</label>
+                    </div>
+                    <div class="form-check form-switch settings-checkbox">
+                        {{ form.include_settings }}
+                        <label class="form-check-label" for="{{ form.include_settings.id_for_label }}">{{ form.include_settings.label }}</label>
+                    </div>
+                </div>
+                <div class="d-flex flex-column flex-sm-row gap-2">
+                    <button class="btn btn-primary px-4">Backup importieren</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    <div class="col-12 col-xl-5">
+        <div class="glass-inner settings-card h-100">
+            <h2 class="h5 mb-3">Backup exportieren</h2>
+            <p class="text-muted">Erstelle eine ZIP-Datei deiner aktuellen Daten. Sie enthält auf Wunsch Artikel, Bestellungen und Einstellungen.</p>
+            <form method="post" action="{% url 'settings_backup_export' %}" class="d-flex flex-column flex-sm-row gap-2">
+                {% csrf_token %}
+                <button class="btn btn-outline-secondary px-4">Jetzt exportieren</button>
+            </form>
+            <div class="settings-note">
+                <h2>Empfehlung</h2>
+                <p class="mb-0">Bewahre Backups extern auf und teste regelmäßig einen Import in einer sicheren Umgebung, um Ausfälle zu vermeiden.</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
