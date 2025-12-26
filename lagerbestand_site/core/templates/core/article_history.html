@@ -1,0 +1,33 @@
+{% extends 'core/base.html' %}
+{% block title %}{{ article.sku }}{% endblock %}
+{% block content %}
+<h1>{{ article.name }} ({{ article.sku }})</h1>
+<p>Kategorie: {{ article.category.name }} | Bestand: {{ article.stock }}</p>
+<a class="btn btn-primary mb-3" href="{% url 'movement_create' article.pk %}">Bewegung erfassen</a>
+<div class="table-responsive">
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>Datum</th>
+                <th>Typ</th>
+                <th>Menge</th>
+                <th>Notiz</th>
+                <th>Rechnung</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for movement in article.movements.all %}
+            <tr>
+                <td>{{ movement.created_at|date:"d.m.Y H:i" }}</td>
+                <td>{{ movement.movement_type }}</td>
+                <td>{{ movement.quantity }}</td>
+                <td>{{ movement.note }}</td>
+                <td>{{ movement.invoice_number }}</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="5" class="text-center">Keine Bewegungen vorhanden.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

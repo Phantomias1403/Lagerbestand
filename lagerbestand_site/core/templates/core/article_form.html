@@ -1,0 +1,13 @@
+{% extends 'core/base.html' %}
+{% block title %}Artikel{% endblock %}
+{% block content %}
+<h1>{% if form.instance.pk %}Artikel bearbeiten{% else %}Artikel anlegen{% endif %}</h1>
+<form method="post" class="card card-body">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <button class="btn btn-primary">Speichern</button>
+</form>
+{% if form.instance.pk %}
+    <a class="btn btn-link mt-3" href="{% url 'movement_create' form.instance.pk %}">Neue Bewegung erfassen</a>
+{% endif %}
+{% endblock %}

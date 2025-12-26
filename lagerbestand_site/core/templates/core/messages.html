@@ -1,0 +1,23 @@
+{% extends 'core/base.html' %}
+{% block title %}Nachrichten{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h1>Nachrichten</h1>
+    <a class="btn btn-primary" href="{% url 'message_create' %}">Neue Nachricht</a>
+</div>
+<ul class="list-group">
+    {% for message in object_list %}
+    <li class="list-group-item">
+        <div class="d-flex justify-content-between">
+            <div>
+                <strong>{{ message.sender.username }}</strong> → {{ message.receiver.username }}
+                <div>{{ message.content }}</div>
+            </div>
+            <small class="text-muted">{{ message.created_at|date:"d.m.Y H:i" }}</small>
+        </div>
+    </li>
+    {% empty %}
+    <li class="list-group-item text-center">Keine Nachrichten vorhanden.</li>
+    {% endfor %}
+</ul>
+{% endblock %}
