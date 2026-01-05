@@ -1,0 +1,77 @@
+{% extends 'core/base.html' %}
+{% block title %}API-Imports{% endblock %}
+{% block content %}
+<div class="section-heading mb-4">
+    <div class="title-icon">🔌</div>
+    <div>
+        <h1 class="h2 mb-1">API-Imports</h1>
+        <p class="text-muted mb-0">Starte Importe direkt aus angebundenen Systemen oder prüfe die API-Verbindung.</p>
+    </div>
+</div>
+
+<div class="row g-4">
+    <div class="col-12">
+        <div class="glass-inner settings-card">
+            <div class="d-flex flex-column flex-lg-row gap-3 align-items-lg-center justify-content-between">
+                <div>
+                    <h2 class="h5 mb-1">Amazon SP-API Bestellungen</h2>
+                    <p class="text-muted mb-0">Importiere Bestellungen aus Amazon-Marktplätzen und prüfe die Zugangsdaten.</p>
+                </div>
+                <div class="d-flex flex-column flex-sm-row gap-2">
+                    <form method="post">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="test_amazon">
+                        <button class="btn btn-outline-secondary px-4">Verbindung testen</button>
+                    </form>
+                    <form method="post">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="run_amazon_import">
+                        <button class="btn btn-primary px-4">Import starten</button>
+                    </form>
+                </div>
+            </div>
+            {% if amazon_missing_env_vars %}
+                <div class="alert alert-warning mt-4 mb-0">
+                    Fehlende Umgebungsvariablen: {{ amazon_missing_env_vars|join:', ' }}.
+                </div>
+            {% endif %}
+            <div class="table-responsive mt-4">
+                <table class="table align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th>Marketplace</th>
+                            <th>Status</th>
+                            <th>Zuletzt synchronisiert</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for marketplace in marketplaces %}
+                            <tr>
+                                <td>{{ marketplace.name }} ({{ marketplace.marketplace_id }})</td>
+                                <td>
+                                    {% if marketplace.active %}
+                                        <span class="badge text-bg-success">Aktiv</span>
+                                    {% else %}
+                                        <span class="badge text-bg-secondary">Inaktiv</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if marketplace.last_synced_at %}
+                                        {{ marketplace.last_synced_at|date:'d.m.Y H:i' }}
+                                    {% else %}
+                                        <span class="text-muted">Noch nicht synchronisiert</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        {% empty %}
+                            <tr>
+                                <td colspan="3" class="text-center text-muted">Keine Amazon-Marktplätze hinterlegt.</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
