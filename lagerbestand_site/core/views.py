@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import csv
 import io
+import os
 from datetime import datetime
 
 from django.conf import settings
@@ -19,7 +20,9 @@ from django.views.generic.base import RedirectView
 from django.db import transaction
 from django.db.models import Q, F
 
-from amazon.models import AmazonOrder
+from amazon.importer import AmazonOrderImporter
+from amazon.models import AmazonMarketplace, AmazonOrder
+from amazon.sp_api import AmazonSpApiError
 
 from . import forms, models, utils
 
@@ -457,6 +460,54 @@ class EndingSettingsView(OptionalLoginRequiredMixin, View):
         return render(request, self.template_name, {'form': form, 'formset': formset, 'endings': endings, 'ending': self.ending})
 
 
+class ApiImportView(OptionalLoginRequiredMixin, View):
+    template_name = 'core/settings_api_imports.html'
+
+    def _amazon_missing_env_vars(self) -> list[str]:
+        required = (
+            'AMAZON_CLIENT_ID',
+            'AMAZON_CLIENT_SECRET',
+            'AMAZON_REFRESH_TOKEN',
+            'AWS_ACCESS_KEY_ID',
+            'AWS_SECRET_ACCESS_KEY',
+        )
+        return [name for name in required if not os.environ.get(name)]
+
+    def get(self, request: HttpRequest) -> HttpResponse:
+        marketplaces = AmazonMarketplace.objects.all()
+        return render(request, self.template_name, {
+            'marketplaces': marketplaces,
+            'amazon_missing_env_vars': self._amazon_missing_env_vars(),
+        })
+
+    def post(self, request: HttpRequest) -> HttpResponse:
+        action = request.POST.get('action')
+        if action == 'test_amazon':
+            try:
+                importer = AmazonOrderImporter()
+                importer.client._ensure_access_token()
+                messages.success(request, 'Amazon API Verbindung erfolgreich getestet.')
+                log_activity(request, 'Amazon API Verbindung getestet')
+            except KeyError as exc:
+                messages.error(request, f'Amazon API Verbindung fehlgeschlagen: Fehlende Umgebungsvariable {exc}.')
+            except AmazonSpApiError as exc:
+                messages.error(request, f'Amazon API Verbindung fehlgeschlagen: {exc}.')
+            return redirect('settings_api_imports')
+        if action == 'run_amazon_import':
+            try:
+                importer = AmazonOrderImporter()
+                created = importer.import_orders()
+                messages.success(request, f'Amazon Import abgeschlossen. Neue Bestellungen: {created}.')
+                log_activity(request, 'Amazon Bestellungen importiert')
+            except KeyError as exc:
+                messages.error(request, f'Amazon Import fehlgeschlagen: Fehlende Umgebungsvariable {exc}.')
+            except AmazonSpApiError as exc:
+                messages.error(request, f'Amazon Import fehlgeschlagen: {exc}.')
+            return redirect('settings_api_imports')
+        messages.error(request, 'Unbekannte Aktion.')
+        return redirect('settings_api_imports')
+
+
 class BackupExportView(OptionalLoginRequiredMixin, View):
     def post(self, request: HttpRequest) -> HttpResponse:
         zip_buffer = io.BytesIO()
@@ -681,4 +732,3 @@ class StaticTemplateView(OptionalLoginRequiredMixin, TemplateView):
     def get_template_names(self):
         slug = self.kwargs.get('slug', 'info')
         return [f'core/static/{slug}.html', self.template_name]
-

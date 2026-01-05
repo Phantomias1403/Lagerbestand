@@ -28,6 +28,7 @@ urlpatterns = [
     path('settings/categories/', views.CategorySettingsView.as_view(), name='settings_categories'),
     path('settings/endings/', views.EndingSettingsView.as_view(), name='settings_endings'),
     path('settings/endings/<int:pk>/', views.EndingSettingsView.as_view(), name='settings_endings_edit'),
+    path('settings/api-imports/', views.ApiImportView.as_view(), name='settings_api_imports'),
     path('settings/backup/', views.BackupImportView.as_view(), name='settings_backup'),
     path('settings/backup/export/', views.BackupExportView.as_view(), name='settings_backup_export'),
 
