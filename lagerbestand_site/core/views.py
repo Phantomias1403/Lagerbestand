@@ -5,6 +5,7 @@ import io
 import os
 from datetime import datetime
 
+from django import forms as django_forms
 from django.contrib import messages
 from django.contrib.auth import authenticate, login, logout, get_user_model
 from django.contrib.auth.decorators import login_required
@@ -704,7 +705,9 @@ class MessageCreateView(OptionalLoginRequiredMixin, FormView):
 
     def get_form(self, form_class=None):
         form = super().get_form(form_class)
-        form.fields['receiver'].queryset = User.objects.exclude(pk=self.request.user.pk)
+        receiver_field = form.fields.get('receiver')
+        if isinstance(receiver_field, django_forms.ModelChoiceField):
+            receiver_field.queryset = User.objects.exclude(pk=self.request.user.pk)
         return form
 
     def form_valid(self, form):
