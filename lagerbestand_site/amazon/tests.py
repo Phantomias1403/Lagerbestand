@@ -14,9 +14,6 @@ class AmazonSpApiConnectionTestCase(TestCase):
             client_id='test-client-id',
             client_secret='test-client-secret',
             refresh_token='test-refresh-token',
-            aws_access_key='test-aws-key',
-            aws_secret_key='test-aws-secret',
-            role_arn='arn:aws:iam::123456789012:role/TestRole',
         )
 
     def test_amazon_connection_refreshes_token_and_requests_orders(self):

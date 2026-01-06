@@ -50,9 +50,6 @@ class AmazonOrderImporter:
             client_id=self._required_env('AMAZON_CLIENT_ID'),
             client_secret=self._required_env('AMAZON_CLIENT_SECRET'),
             refresh_token=self._required_env('AMAZON_REFRESH_TOKEN'),
-            aws_access_key=self._required_env('AWS_ACCESS_KEY_ID'),
-            aws_secret_key=self._required_env('AWS_SECRET_ACCESS_KEY'),
-            role_arn=os.environ.get('AWS_ROLE_ARN'),
         )
         return SellingPartnerClient(credentials)
 
