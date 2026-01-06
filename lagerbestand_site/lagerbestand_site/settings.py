@@ -3,9 +3,21 @@ from __future__ import annotations
 
 from pathlib import Path
 import os
+
+import environ
 from datetime import timedelta
 
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+env = environ.Env()
+env_paths = [
+    BASE_DIR / '.env',
+    BASE_DIR.parent / '.env',
+]
+for env_path in env_paths:
+    if env_path.exists():
+        env.read_env(str(env_path))
+        break
 
 SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'change-me')
 DEBUG = os.environ.get('DJANGO_DEBUG', '0') == '1'
