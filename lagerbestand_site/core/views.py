@@ -330,6 +330,12 @@ class OrderListView(OptionalLoginRequiredMixin, ListView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['amazon_orders'] = AmazonOrder.objects.select_related('marketplace').prefetch_related('items')
+        context['latest_order'] = (
+            models.Order.objects.select_related('user')
+            .prefetch_related('items__article')
+            .order_by('-created_at')
+            .first()
+        )
         return context
 
 

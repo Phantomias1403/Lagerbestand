@@ -3,8 +3,41 @@
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-3">
     <h1>Bestellungen</h1>
-    <a class="btn btn-primary" href="{% url 'order_create' %}">Neue Bestellung</a>
+    <div class="d-flex gap-2">
+        {% if latest_order %}
+            <button class="btn btn-outline-primary" type="button" data-bs-toggle="collapse" data-bs-target="#latestOrderDetails" aria-expanded="false" aria-controls="latestOrderDetails">
+                Letzte Bestellung anzeigen
+            </button>
+        {% endif %}
+        <a class="btn btn-primary" href="{% url 'order_create' %}">Neue Bestellung</a>
+    </div>
 </div>
+{% if latest_order %}
+<div class="collapse mb-4" id="latestOrderDetails">
+    <div class="card card-body border-0 shadow-sm">
+        <h2 class="h5 mb-3">Letzte eingegangene Bestellung (#{{ latest_order.pk }})</h2>
+        <div class="row g-3">
+            <div class="col-md-6">
+                <p class="mb-1"><strong>Name:</strong> {{ latest_order.customer_name }}</p>
+                <p class="mb-0"><strong>Adresse:</strong></p>
+                <pre class="mb-0">{{ latest_order.customer_address|default:"Keine Adresse hinterlegt." }}</pre>
+            </div>
+            <div class="col-md-6">
+                <p class="mb-1"><strong>Bestellte Artikel:</strong></p>
+                {% if latest_order.items.all|length %}
+                    <ul class="mb-0">
+                        {% for item in latest_order.items.all %}
+                            <li>{{ item.quantity }} × {{ item.article.name }} ({{ item.article.sku }})</li>
+                        {% endfor %}
+                    </ul>
+                {% else %}
+                    <p class="mb-0 text-muted">Keine Positionen hinterlegt.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
 <div class="table-responsive">
     <table class="table table-striped">
         <thead>
