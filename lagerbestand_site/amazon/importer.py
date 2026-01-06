@@ -39,13 +39,19 @@ class AmazonOrderImporter:
         self.logger = ActivityLogger()
         self.client = self._build_client()
 
+    def _required_env(self, name: str) -> str:
+        value = os.environ.get(name)
+        if not value:
+            raise AmazonSpApiError(f"Fehlende Umgebungsvariable {name}.")
+        return value
+
     def _build_client(self) -> SellingPartnerClient:
         credentials = AmazonCredentials(
-            client_id=os.environ['AMAZON_CLIENT_ID'],
-            client_secret=os.environ['AMAZON_CLIENT_SECRET'],
-            refresh_token=os.environ['AMAZON_REFRESH_TOKEN'],
-            aws_access_key=os.environ['AWS_ACCESS_KEY_ID'],
-            aws_secret_key=os.environ['AWS_SECRET_ACCESS_KEY'],
+            client_id=self._required_env('AMAZON_CLIENT_ID'),
+            client_secret=self._required_env('AMAZON_CLIENT_SECRET'),
+            refresh_token=self._required_env('AMAZON_REFRESH_TOKEN'),
+            aws_access_key=self._required_env('AWS_ACCESS_KEY_ID'),
+            aws_secret_key=self._required_env('AWS_SECRET_ACCESS_KEY'),
             role_arn=os.environ.get('AWS_ROLE_ARN'),
         )
         return SellingPartnerClient(credentials)

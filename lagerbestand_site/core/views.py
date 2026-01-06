@@ -467,8 +467,6 @@ class ApiImportView(OptionalLoginRequiredMixin, View):
             'AMAZON_CLIENT_ID',
             'AMAZON_CLIENT_SECRET',
             'AMAZON_REFRESH_TOKEN',
-            'AWS_ACCESS_KEY_ID',
-            'AWS_SECRET_ACCESS_KEY',
         )
         return [name for name in required if not os.environ.get(name)]
 
