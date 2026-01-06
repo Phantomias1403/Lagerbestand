@@ -40,7 +40,7 @@ def normalise_import_header(header: str | None) -> str:
     if not header:
         return ''
     cleaned = header.strip().lower()
-    for ch in (' ', '-', '.', '\\t'):
+    for ch in (' ', '-', '.', '\t'):
         cleaned = cleaned.replace(ch, '_')
     cleaned = cleaned.replace('__', '_').strip('_')
     return IMPORT_HEADER_ALIASES.get(cleaned, cleaned)
@@ -58,6 +58,7 @@ def normalise_import_row(row: dict[str, str]) -> dict[str, str]:
             normalised[normalised_key] = value
     return normalised
 
+
 class TokenGenerator(PasswordResetTokenGenerator):
     def _make_hash_value(self, user, timestamp):
         return f"{user.pk}{user.password}{timestamp}"
@@ -67,7 +68,7 @@ password_reset_token_generator = TokenGenerator()
 
 
 def user_management_enabled() -> bool:
-    return settings.ENABLE_USER_MANAGEMENT
+    return getattr(settings, 'ENABLE_USER_MANAGEMENT', False)
 
 
 DEFAULT_MIN_STOCK = {
