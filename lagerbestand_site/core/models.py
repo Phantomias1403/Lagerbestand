@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from decimal import Decimal
+
 from django.conf import settings
 from django.contrib.auth.models import AbstractUser
 from django.db import models
@@ -127,8 +129,8 @@ class Order(TimestampedModel):
         verbose_name_plural = 'Bestellungen'
 
     @property
-    def total_price(self):
-        return sum(item.quantity * item.unit_price for item in self.items.all())
+    def total_price(self) -> Decimal:
+        return sum((item.quantity * item.unit_price for item in self.items.all()), Decimal('0'))
 
 
 class OrderItem(models.Model):
@@ -145,7 +147,7 @@ class OrderItem(models.Model):
         return f"{self.quantity}x {self.article.sku}"
 
     @property
-    def line_total(self):
+    def line_total(self) -> Decimal:
         return self.quantity * self.unit_price
 
 
