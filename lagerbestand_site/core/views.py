@@ -507,6 +507,17 @@ class ApiImportView(OptionalLoginRequiredMixin, View):
             except AmazonSpApiError as exc:
                 messages.error(request, f'Amazon Import fehlgeschlagen: {exc}.')
             return redirect('settings_api_imports')
+        if action == 'run_amazon_latest_order':
+            try:
+                importer = AmazonOrderImporter()
+                updated = importer.import_latest_orders()
+                messages.success(request, f'Amazon letzte Bestellung importiert. Aktualisiert: {updated}.')
+                log_activity(request, 'Amazon letzte Bestellung importiert')
+            except KeyError as exc:
+                messages.error(request, f'Amazon Import fehlgeschlagen: Fehlende Umgebungsvariable {exc}.')
+            except AmazonSpApiError as exc:
+                messages.error(request, f'Amazon Import fehlgeschlagen: {exc}.')
+            return redirect('settings_api_imports')
         messages.error(request, 'Unbekannte Aktion.')
         return redirect('settings_api_imports')
 

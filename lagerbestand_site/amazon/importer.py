@@ -69,6 +69,20 @@ class AmazonOrderImporter:
             self.logger.log(f"Import erfolgreich || Anzahl der Bestellungen: {created_orders}")
         return created_orders
 
+    def import_latest_orders(self) -> int:
+        updated_orders = 0
+        marketplaces = AmazonMarketplace.objects.filter(active=True)
+        error_occurred = False
+        for marketplace in marketplaces:
+            try:
+                updated_orders += self._import_latest_marketplace_order(marketplace)
+            except AmazonSpApiError as exc:
+                self.logger.log(f"Import fehlgeschlagen || {marketplace.marketplace_id}: {exc}")
+                error_occurred = True
+        if not error_occurred:
+            self.logger.log(f"Letzte Bestellung importiert || Anzahl der Bestellungen: {updated_orders}")
+        return updated_orders
+
     def _import_marketplace_orders(self, marketplace: AmazonMarketplace) -> int:
         created_orders = 0
         since = marketplace.last_synced_at or timezone.now() - timedelta(hours=48)
@@ -79,21 +93,51 @@ class AmazonOrderImporter:
             created_orders += 1 if created else 0
         return created_orders
 
-    def _store_order(self, payload: Dict[str, Any], marketplace: AmazonMarketplace) -> bool:
+    def _import_latest_marketplace_order(self, marketplace: AmazonMarketplace) -> int:
+        since = marketplace.last_synced_at or timezone.now() - timedelta(hours=48)
+        orders = list(self.client.list_orders(marketplace.marketplace_id, since))
+        if not orders:
+            return 0
+        latest_order_payload = max(
+            orders,
+            key=lambda payload: self._parse_datetime(payload.get('PurchaseDate')),
+        )
+        return 1 if self._store_order(latest_order_payload, marketplace, allow_update=True) else 0
+
+    def _store_order(self, payload: Dict[str, Any], marketplace: AmazonMarketplace, allow_update: bool = False) -> bool:
         amazon_order_id = payload.get('AmazonOrderId')
         if not amazon_order_id:
             return False
         total = payload.get('OrderTotal', {}) or {}
         with transaction.atomic():
-            order = AmazonOrder.objects.create(
-                amazon_order_id=amazon_order_id,
-                marketplace=marketplace,
-                ship_to_country=(payload.get('ShippingAddress') or {}).get('CountryCode', ''),
-                purchase_date=self._parse_datetime(payload.get('PurchaseDate')),
-                order_status=payload.get('OrderStatus', ''),
-                order_total_amount=parse_decimal(total.get('Amount')),
-                order_total_currency=total.get('CurrencyCode', ''),
-            )
+            existing_order = AmazonOrder.objects.filter(amazon_order_id=amazon_order_id).first()
+            if existing_order and allow_update:
+                existing_order.marketplace = marketplace
+                existing_order.ship_to_country = (payload.get('ShippingAddress') or {}).get('CountryCode', '')
+                existing_order.purchase_date = self._parse_datetime(payload.get('PurchaseDate'))
+                existing_order.order_status = payload.get('OrderStatus', '')
+                existing_order.order_total_amount = parse_decimal(total.get('Amount'))
+                existing_order.order_total_currency = total.get('CurrencyCode', '')
+                existing_order.save(update_fields=[
+                    'marketplace',
+                    'ship_to_country',
+                    'purchase_date',
+                    'order_status',
+                    'order_total_amount',
+                    'order_total_currency',
+                ])
+                existing_order.items.all().delete()
+                order = existing_order
+            else:
+                order = AmazonOrder.objects.create(
+                    amazon_order_id=amazon_order_id,
+                    marketplace=marketplace,
+                    ship_to_country=(payload.get('ShippingAddress') or {}).get('CountryCode', ''),
+                    purchase_date=self._parse_datetime(payload.get('PurchaseDate')),
+                    order_status=payload.get('OrderStatus', ''),
+                    order_total_amount=parse_decimal(total.get('Amount')),
+                    order_total_currency=total.get('CurrencyCode', ''),
+                )
             for item_payload in self.client.list_order_items(amazon_order_id):
                 self._store_item(order, item_payload)
         return True
