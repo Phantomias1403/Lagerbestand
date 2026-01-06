@@ -25,6 +25,11 @@
                     </form>
                     <form method="post">
                         {% csrf_token %}
+                        <input type="hidden" name="action" value="run_amazon_latest_order">
+                        <button class="btn btn-outline-primary px-4">Letzte Bestellung ziehen</button>
+                    </form>
+                    <form method="post">
+                        {% csrf_token %}
                         <input type="hidden" name="action" value="run_amazon_import">
                         <button class="btn btn-primary px-4">Import starten</button>
                     </form>
