@@ -5,11 +5,10 @@ import io
 import os
 from datetime import datetime
 
-from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import authenticate, login, logout, get_user_model
 from django.contrib.auth.decorators import login_required
-from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
+from django.http import HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse, reverse_lazy
 from django.utils.decorators import method_decorator
@@ -30,7 +29,7 @@ User = get_user_model()
 
 
 def login_optional(view_func):
-    if settings.ENABLE_USER_MANAGEMENT:
+    if utils.user_management_enabled():
         return login_required(view_func)
     return view_func
 
