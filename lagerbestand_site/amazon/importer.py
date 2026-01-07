@@ -38,6 +38,7 @@ class AmazonOrderImporter:
     def __init__(self):
         self.logger = ActivityLogger()
         self.client = self._build_client()
+        self.errors: list[str] = []
 
     def _required_env(self, name: str) -> str:
         value = os.environ.get(name)
@@ -54,43 +55,54 @@ class AmazonOrderImporter:
         return SellingPartnerClient(credentials)
 
     def import_orders(self) -> int:
+        self.errors = []
         created_orders = 0
         marketplaces = AmazonMarketplace.objects.filter(active=True)
-        error_occurred = False
         for marketplace in marketplaces:
             try:
                 created_orders += self._import_marketplace_orders(marketplace)
-                marketplace.last_synced_at = timezone.now()
+                #marketplace.last_synced_at = timezone.now()
                 marketplace.save(update_fields=['last_synced_at'])
             except AmazonSpApiError as exc:
                 self.logger.log(f"Import fehlgeschlagen || {marketplace.marketplace_id}: {exc}")
-                error_occurred = True
-        if not error_occurred:
+                self.errors.append(f"{marketplace.marketplace_id}: {exc}")
+        if not self.errors:
             self.logger.log(f"Import erfolgreich || Anzahl der Bestellungen: {created_orders}")
         return created_orders
 
     def import_latest_orders(self) -> int:
+        self.errors = []
         updated_orders = 0
         marketplaces = AmazonMarketplace.objects.filter(active=True)
-        error_occurred = False
         for marketplace in marketplaces:
             try:
                 updated_orders += self._import_latest_marketplace_order(marketplace)
             except AmazonSpApiError as exc:
                 self.logger.log(f"Import fehlgeschlagen || {marketplace.marketplace_id}: {exc}")
-                error_occurred = True
-        if not error_occurred:
+                self.errors.append(f"{marketplace.marketplace_id}: {exc}")
+        if not self.errors:
             self.logger.log(f"Letzte Bestellung importiert || Anzahl der Bestellungen: {updated_orders}")
         return updated_orders
 
     def _import_marketplace_orders(self, marketplace: AmazonMarketplace) -> int:
         created_orders = 0
-        since = marketplace.last_synced_at or timezone.now() - timedelta(hours=48)
-        for order_payload in self.client.list_orders(marketplace.marketplace_id, since):
-            if AmazonOrder.objects.filter(amazon_order_id=order_payload.get('AmazonOrderId')).exists():
+
+        # Erstimport: mehr Historie holen
+        if marketplace.last_synced_at:
+            since = marketplace.last_synced_at
+        else:
+            since = timezone.now() - timedelta(days=30)  # statt 48h
+
+        orders = list(self.client.list_orders(marketplace.marketplace_id, since))
+        self.logger.log(f"{marketplace.marketplace_id}: Orders von Amazon erhalten: {len(orders)} (since={since.isoformat()})")
+
+        for order_payload in orders:
+            amazon_order_id = order_payload.get("AmazonOrderId")
+            if amazon_order_id and AmazonOrder.objects.filter(amazon_order_id=amazon_order_id).exists():
                 continue
             created = self._store_order(order_payload, marketplace)
             created_orders += 1 if created else 0
+
         return created_orders
 
     def _import_latest_marketplace_order(self, marketplace: AmazonMarketplace) -> int:
@@ -126,7 +138,8 @@ class AmazonOrderImporter:
                     'order_total_amount',
                     'order_total_currency',
                 ])
-                existing_order.items.all().delete()
+                AmazonOrderItem.objects.filter(order=existing_order).delete()
+
                 order = existing_order
             else:
                 order = AmazonOrder.objects.create(

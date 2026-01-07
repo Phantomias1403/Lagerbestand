@@ -40,7 +40,7 @@ def log_activity(request: HttpRequest, action: str) -> None:
         models.ActivityLog.objects.create(user=request.user, action=action)
 
 
-class OptionalLoginRequiredMixin:
+class OptionalLoginRequiredMixin(View):
     """Mixin that only requires login when user management is enabled."""
 
     @method_decorator(login_optional)
@@ -500,8 +500,11 @@ class ApiImportView(OptionalLoginRequiredMixin, View):
             try:
                 importer = AmazonOrderImporter()
                 created = importer.import_orders()
-                messages.success(request, f'Amazon Import abgeschlossen. Neue Bestellungen: {created}.')
-                log_activity(request, 'Amazon Bestellungen importiert')
+                if importer.errors:
+                    messages.error(request, f"Amazon Import fehlgeschlagen: {', '.join(importer.errors)}.")
+                else:
+                    messages.success(request, f'Amazon Bestellungen importiert. Erstellt: {created}.')
+                    log_activity(request, 'Amazon letzte Bestellung importiert')
             except KeyError as exc:
                 messages.error(request, f'Amazon Import fehlgeschlagen: Fehlende Umgebungsvariable {exc}.')
             except AmazonSpApiError as exc:

@@ -7,6 +7,9 @@ from typing import Any, Dict, Iterable, List
 
 import requests
 
+import time
+import random
+
 
 class AmazonSpApiError(Exception):
     pass
@@ -27,11 +30,17 @@ class SellingPartnerClient:
         self._token_expires_at: dt.datetime | None = None
 
     def list_orders(self, marketplace_id: str, created_after: dt.datetime) -> Iterable[Dict[str, Any]]:
+        # Amazon will UTC with Z (z.B. 2025-12-08T17:31:14Z)
+        if created_after.tzinfo is None:
+            created_after = created_after.replace(tzinfo=dt.timezone.utc)
+        created_after_utc = created_after.astimezone(dt.timezone.utc).replace(microsecond=0)
+        created_after_str = created_after_utc.isoformat().replace("+00:00", "Z")
+
         params = {
-            'MarketplaceIds': marketplace_id,
-            'CreatedAfter': created_after.replace(microsecond=0).isoformat(),
+            "MarketplaceIds": marketplace_id,
+            "CreatedAfter": created_after_str,
         }
-        return self._paginate('/orders/v0/orders', params, 'Orders')
+        return self._paginate("/orders/v0/orders", params, "Orders")
 
     def list_order_items(self, amazon_order_id: str) -> List[Dict[str, Any]]:
         path = f'/orders/v0/orders/{amazon_order_id}/orderItems'
@@ -41,32 +50,73 @@ class SellingPartnerClient:
 
     def _paginate(self, path: str, params: Dict[str, Any], result_key: str) -> Iterable[Dict[str, Any]]:
         next_token: str | None = None
+
         while True:
-            query_params = params.copy()
             if next_token:
-                query_params = {'NextToken': next_token}
-            response = self._request('GET', path, params=query_params)
+                # NextToken-Call: MarketplaceIds muss mit, Filter wie CreatedAfter nicht mehr mitsenden
+                query_params = {
+                    "MarketplaceIds": params.get("MarketplaceIds"),
+                    "NextToken": next_token,
+                }
+            else:
+                query_params = params.copy()
+
+            response = self._request("GET", path, params=query_params)
             data = response.json()
-            payload = data.get('payload') or {}
+            payload = data.get("payload") or {}
+
             for entry in payload.get(result_key, []):
                 yield entry
-            next_token = payload.get('NextToken')
+
+            next_token = payload.get("NextToken")
             if not next_token:
                 break
 
-    def _request(self, method: str, path: str, params: Dict[str, Any] | None = None, body: Dict[str, Any] | None = None):
+
+
+
+
+    def _request(self, method: str, path: str, params=None, body=None):
         params = params or {}
-        body = body or {}
         self._ensure_access_token()
         url = f"{self.endpoint}{path}"
         headers = {
-            'x-amz-access-token': self._access_token or '',
-            'content-type': 'application/json',
+            "x-amz-access-token": self._access_token or "",
+            "accept": "application/json",
+            "content-type": "application/json",
         }
-        response = requests.request(method, url, headers=headers, params=params, json=body, timeout=30)
-        if not response.ok:
-            raise AmazonSpApiError(f"SP-API responded with status {response.status_code}")
-        return response
+
+        json_payload = None
+        if method.upper() not in {"GET", "DELETE"} and body is not None:
+            json_payload = body
+
+        # Retry-Policy (429 / 503)
+        max_attempts = 6
+        base_sleep = 1.0
+
+        for attempt in range(1, max_attempts + 1):
+            resp = requests.request(
+                method, url, headers=headers, params=params, json=json_payload, timeout=30
+            )
+
+            if resp.status_code in (429, 503):
+                # Exponential backoff + jitter
+                sleep_s = base_sleep * (2 ** (attempt - 1)) + random.uniform(0, 0.25)
+                # optional: falls Header existiert
+                retry_after = resp.headers.get("Retry-After")
+                if retry_after and retry_after.isdigit():
+                    sleep_s = max(sleep_s, float(retry_after))
+                time.sleep(sleep_s)
+                continue
+
+            if not resp.ok:
+                raise AmazonSpApiError(f"SP-API {resp.status_code}: {resp.text[:1000]}")
+            return resp
+
+        raise AmazonSpApiError(f"SP-API 429/503: Retry limit exceeded for {path}")
+
+
+
 
     def _ensure_access_token(self) -> None:
         if self._access_token and self._token_expires_at and self._token_expires_at > dt.datetime.utcnow():
