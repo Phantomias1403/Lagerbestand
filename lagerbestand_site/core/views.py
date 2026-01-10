@@ -20,6 +20,7 @@ from django.views.generic.edit import FormView
 from django.views.generic.base import RedirectView
 from django.db import transaction
 from django.db.models import Q, F, Sum, DecimalField, ExpressionWrapper
+from django.db.models.functions import Coalesce
 
 from amazon.importer import AmazonOrderImporter
 from amazon.models import AmazonMarketplace, AmazonOrder
@@ -366,7 +367,12 @@ class OrderAnalysisView(OptionalLoginRequiredMixin, TemplateView):
             F('quantity') * F('unit_price'),
             output_field=DecimalField(max_digits=12, decimal_places=2),
         )
-        item_queryset = models.OrderItem.objects.filter(order__in=orders.values('pk'))
+        order_total_expression = ExpressionWrapper(
+            F('items__quantity') * F('items__unit_price'),
+            output_field=DecimalField(max_digits=12, decimal_places=2),
+        )
+        orders = orders.annotate(analysis_total=Coalesce(Sum(order_total_expression), Decimal("0")))
+        item_queryset = models.OrderItem.objects.filter(order__in=orders.values_list('pk', flat=True))
         total_revenue = item_queryset.aggregate(total=Sum(revenue_expression))['total'] or Decimal("0")
         marketplace_rows = (
             item_queryset
@@ -535,7 +541,27 @@ class ApiImportView(OptionalLoginRequiredMixin, View):
         return render(request, self.template_name, {
             'marketplaces': marketplaces,
             'amazon_missing_env_vars': self._amazon_missing_env_vars(),
+            'api_import_form': forms.ApiImportRangeForm(),
+            'debug_stats': self._debug_stats(),
         })
+
+    def _debug_stats(self) -> dict[str, int]:
+        return {
+            'orders': models.Order.objects.count(),
+            'order_items': models.OrderItem.objects.count(),
+            'movements': models.Movement.objects.count(),
+            'amazon_orders': AmazonOrder.objects.count(),
+            'messages': models.Message.objects.count(),
+            'activity_logs': models.ActivityLog.objects.count(),
+        }
+
+    def _delete_order(self, order: models.Order) -> None:
+        for movement in models.Movement.objects.filter(order=order).select_related('article'):
+            if movement.article:
+                movement.article.stock += abs(movement.quantity)
+                movement.article.save(update_fields=['stock'])
+        models.Movement.objects.filter(order=order).delete()
+        order.delete()
 
     def post(self, request: HttpRequest) -> HttpResponse:
         action = request.POST.get('action')
@@ -552,8 +578,19 @@ class ApiImportView(OptionalLoginRequiredMixin, View):
             return redirect('settings_api_imports')
         if action == 'run_amazon_import':
             try:
+                import_form = forms.ApiImportRangeForm(request.POST)
+                if not import_form.is_valid():
+                    marketplaces = AmazonMarketplace.objects.all()
+                    return render(request, self.template_name, {
+                        'marketplaces': marketplaces,
+                        'amazon_missing_env_vars': self._amazon_missing_env_vars(),
+                        'api_import_form': import_form,
+                        'debug_stats': self._debug_stats(),
+                    })
+                start_datetime = import_form.cleaned_data.get('start_datetime')
+                end_datetime = import_form.cleaned_data.get('end_datetime')
                 importer = AmazonOrderImporter()
-                created = importer.import_orders()
+                created = importer.import_orders(start_datetime=start_datetime, end_datetime=end_datetime)
                 if importer.errors:
                     messages.error(request, f"Amazon Import fehlgeschlagen: {', '.join(importer.errors)}.")
                 else:
@@ -574,6 +611,61 @@ class ApiImportView(OptionalLoginRequiredMixin, View):
                 messages.error(request, f'Amazon Import fehlgeschlagen: Fehlende Umgebungsvariable {exc}.')
             except AmazonSpApiError as exc:
                 messages.error(request, f'Amazon Import fehlgeschlagen: {exc}.')
+            return redirect('settings_api_imports')
+        if action == 'debug_delete_all_orders':
+            with transaction.atomic():
+                for order in models.Order.objects.all():
+                    self._delete_order(order)
+            messages.success(request, 'Alle Bestellungen wurden gelöscht.')
+            log_activity(request, 'Debug: Alle Bestellungen gelöscht')
+            return redirect('settings_api_imports')
+        if action == 'debug_delete_order':
+            raw_order_id = (request.POST.get('order_id') or '').strip()
+            try:
+                order_id = int(raw_order_id)
+            except ValueError:
+                messages.error(request, 'Bitte eine gültige Bestell-ID angeben.')
+                return redirect('settings_api_imports')
+            order = models.Order.objects.filter(pk=order_id).first()
+            if not order:
+                messages.error(request, 'Bestellung nicht gefunden.')
+                return redirect('settings_api_imports')
+            with transaction.atomic():
+                self._delete_order(order)
+            messages.success(request, f'Bestellung #{order_id} gelöscht.')
+            log_activity(request, f'Debug: Bestellung #{order_id} gelöscht')
+            return redirect('settings_api_imports')
+        if action == 'debug_delete_all_amazon_orders':
+            AmazonOrder.objects.all().delete()
+            messages.success(request, 'Alle Amazon-Bestellungen wurden gelöscht.')
+            log_activity(request, 'Debug: Alle Amazon-Bestellungen gelöscht')
+            return redirect('settings_api_imports')
+        if action == 'debug_delete_amazon_order':
+            amazon_order_id = (request.POST.get('amazon_order_id') or '').strip()
+            if not amazon_order_id:
+                messages.error(request, 'Bitte eine Amazon-Bestellnummer angeben.')
+                return redirect('settings_api_imports')
+            order = AmazonOrder.objects.filter(amazon_order_id=amazon_order_id).first()
+            if not order:
+                messages.error(request, 'Amazon-Bestellung nicht gefunden.')
+                return redirect('settings_api_imports')
+            order.delete()
+            messages.success(request, f'Amazon-Bestellung {amazon_order_id} gelöscht.')
+            log_activity(request, f'Debug: Amazon-Bestellung {amazon_order_id} gelöscht')
+            return redirect('settings_api_imports')
+        if action == 'debug_delete_movements':
+            models.Movement.objects.all().delete()
+            messages.success(request, 'Alle Bewegungen wurden gelöscht.')
+            log_activity(request, 'Debug: Alle Bewegungen gelöscht')
+            return redirect('settings_api_imports')
+        if action == 'debug_delete_messages':
+            models.Message.objects.all().delete()
+            messages.success(request, 'Alle Nachrichten wurden gelöscht.')
+            log_activity(request, 'Debug: Alle Nachrichten gelöscht')
+            return redirect('settings_api_imports')
+        if action == 'debug_delete_activity_logs':
+            models.ActivityLog.objects.all().delete()
+            messages.success(request, 'Alle Aktivitäten wurden gelöscht.')
             return redirect('settings_api_imports')
         messages.error(request, 'Unbekannte Aktion.')
         return redirect('settings_api_imports')

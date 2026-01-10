@@ -28,13 +28,31 @@
                         <input type="hidden" name="action" value="run_amazon_latest_order">
                         <button class="btn btn-outline-primary px-4">Letzte Bestellung ziehen</button>
                     </form>
-                    <form method="post">
-                        {% csrf_token %}
-                        <input type="hidden" name="action" value="run_amazon_import">
-                        <button class="btn btn-primary px-4">Import starten</button>
-                    </form>
                 </div>
             </div>
+            <form method="post" class="mt-4">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="run_amazon_import">
+                <div class="row g-3 align-items-end">
+                    <div class="col-md-4">
+                        {{ api_import_form.start_datetime.label_tag }}
+                        {{ api_import_form.start_datetime }}
+                    </div>
+                    <div class="col-md-4">
+                        {{ api_import_form.end_datetime.label_tag }}
+                        {{ api_import_form.end_datetime }}
+                    </div>
+                    <div class="col-md-4 d-flex align-items-end">
+                        <button class="btn btn-primary px-4">Import starten</button>
+                    </div>
+                </div>
+                {% if api_import_form.non_field_errors %}
+                    <div class="alert alert-danger mt-3 mb-0">
+                        {{ api_import_form.non_field_errors|join:' ' }}
+                    </div>
+                {% endif %}
+                <div class="form-text mt-2">Optional kannst du einen Zeitraum festlegen. Ohne Angaben wird der letzte Importstatus genutzt.</div>
+            </form>
             {% if amazon_missing_env_vars %}
                 <div class="alert alert-warning mt-4 mb-0">
                     Fehlende Umgebungsvariablen: {{ amazon_missing_env_vars|join:', ' }}.
@@ -75,6 +93,80 @@
                         {% endfor %}
                     </tbody>
                 </table>
+            </div>
+        </div>
+    </div>
+    <div class="col-12">
+        <div class="glass-inner settings-card">
+            <div class="d-flex flex-column flex-lg-row gap-3 align-items-lg-center justify-content-between">
+                <div>
+                    <h2 class="h5 mb-1">Debug &amp; Wartung</h2>
+                    <p class="text-muted mb-0">Hilfsfunktionen zum Bereinigen von Bestellungen, Bewegungen und Logs.</p>
+                </div>
+            </div>
+            <div class="row g-4 mt-1">
+                <div class="col-lg-6">
+                    <h3 class="h6 text-uppercase text-muted">Bestellungen</h3>
+                    <p class="small text-muted mb-3">
+                        Aktuell: {{ debug_stats.orders }} Bestellungen, {{ debug_stats.order_items }} Positionen.
+                    </p>
+                    <form method="post" class="mb-3">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="debug_delete_all_orders">
+                        <button class="btn btn-outline-danger w-100">Alle Bestellungen löschen</button>
+                    </form>
+                    <form method="post" class="card card-body border-0 shadow-sm">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="debug_delete_order">
+                        <label class="form-label" for="order-id-input">Einzelne Bestellung löschen</label>
+                        <input id="order-id-input" class="form-control" type="number" name="order_id" placeholder="Bestell-ID">
+                        <button class="btn btn-danger mt-3">Bestellung löschen</button>
+                    </form>
+                </div>
+                <div class="col-lg-6">
+                    <h3 class="h6 text-uppercase text-muted">Amazon-Bestellungen</h3>
+                    <p class="small text-muted mb-3">Aktuell: {{ debug_stats.amazon_orders }} Amazon-Bestellungen.</p>
+                    <form method="post" class="mb-3">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="debug_delete_all_amazon_orders">
+                        <button class="btn btn-outline-danger w-100">Alle Amazon-Bestellungen löschen</button>
+                    </form>
+                    <form method="post" class="card card-body border-0 shadow-sm">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="debug_delete_amazon_order">
+                        <label class="form-label" for="amazon-order-id-input">Amazon-Bestellung löschen</label>
+                        <input id="amazon-order-id-input" class="form-control" type="text" name="amazon_order_id" placeholder="Amazon Order ID">
+                        <button class="btn btn-danger mt-3">Amazon-Bestellung löschen</button>
+                    </form>
+                </div>
+                <div class="col-lg-6">
+                    <h3 class="h6 text-uppercase text-muted">Bewegungen &amp; Logs</h3>
+                    <p class="small text-muted mb-3">
+                        {{ debug_stats.movements }} Bewegungen, {{ debug_stats.activity_logs }} Aktivitäten.
+                    </p>
+                    <form method="post" class="mb-3">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="debug_delete_movements">
+                        <button class="btn btn-outline-danger w-100">Alle Bewegungen löschen</button>
+                    </form>
+                    <form method="post">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="debug_delete_activity_logs">
+                        <button class="btn btn-outline-danger w-100">Alle Aktivitäten löschen</button>
+                    </form>
+                </div>
+                <div class="col-lg-6">
+                    <h3 class="h6 text-uppercase text-muted">Nachrichten</h3>
+                    <p class="small text-muted mb-3">Aktuell: {{ debug_stats.messages }} Nachrichten.</p>
+                    <form method="post">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="debug_delete_messages">
+                        <button class="btn btn-outline-danger w-100">Alle Nachrichten löschen</button>
+                    </form>
+                </div>
+            </div>
+            <div class="alert alert-warning mt-4 mb-0">
+                Achtung: Debug-Aktionen lassen sich nicht rückgängig machen. Bitte nur in Testumgebungen verwenden.
             </div>
         </div>
     </div>
