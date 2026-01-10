@@ -29,7 +29,12 @@ class SellingPartnerClient:
         self._access_token: str | None = None
         self._token_expires_at: dt.datetime | None = None
 
-    def list_orders(self, marketplace_id: str, created_after: dt.datetime) -> Iterable[Dict[str, Any]]:
+    def list_orders(
+        self,
+        marketplace_id: str,
+        created_after: dt.datetime,
+        created_before: dt.datetime | None = None,
+    ) -> Iterable[Dict[str, Any]]:
         # Amazon will UTC with Z (z.B. 2025-12-08T17:31:14Z)
         if created_after.tzinfo is None:
             created_after = created_after.replace(tzinfo=dt.timezone.utc)
@@ -40,6 +45,11 @@ class SellingPartnerClient:
             "MarketplaceIds": marketplace_id,
             "CreatedAfter": created_after_str,
         }
+        if created_before:
+            if created_before.tzinfo is None:
+                created_before = created_before.replace(tzinfo=dt.timezone.utc)
+            created_before_utc = created_before.astimezone(dt.timezone.utc).replace(microsecond=0)
+            params["CreatedBefore"] = created_before_utc.isoformat().replace("+00:00", "Z")
         return self._paginate("/orders/v0/orders", params, "Orders")
 
     def list_order_items(self, amazon_order_id: str) -> List[Dict[str, Any]]:

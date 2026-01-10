@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import os
-from datetime import timedelta
+from datetime import datetime, timedelta
 from typing import Any, Dict
 
 from django.contrib.auth import get_user_model
@@ -54,13 +54,21 @@ class AmazonOrderImporter:
         )
         return SellingPartnerClient(credentials)
 
-    def import_orders(self) -> int:
+    def import_orders(
+        self,
+        start_datetime: datetime | None = None,
+        end_datetime: datetime | None = None,
+    ) -> int:
         self.errors = []
         created_orders = 0
         marketplaces = AmazonMarketplace.objects.filter(active=True)
         for marketplace in marketplaces:
             try:
-                created_orders += self._import_marketplace_orders(marketplace)
+                created_orders += self._import_marketplace_orders(
+                    marketplace,
+                    start_datetime=start_datetime,
+                    end_datetime=end_datetime,
+                )
                 #marketplace.last_synced_at = timezone.now()
                 marketplace.save(update_fields=['last_synced_at'])
             except AmazonSpApiError as exc:
@@ -84,17 +92,27 @@ class AmazonOrderImporter:
             self.logger.log(f"Letzte Bestellung importiert || Anzahl der Bestellungen: {updated_orders}")
         return updated_orders
 
-    def _import_marketplace_orders(self, marketplace: AmazonMarketplace) -> int:
+    def _import_marketplace_orders(
+        self,
+        marketplace: AmazonMarketplace,
+        start_datetime: datetime | None = None,
+        end_datetime: datetime | None = None,
+    ) -> int:
         created_orders = 0
 
         # Erstimport: mehr Historie holen
-        if marketplace.last_synced_at:
+        if start_datetime:
+            since = start_datetime
+        elif marketplace.last_synced_at:
             since = marketplace.last_synced_at
         else:
             since = timezone.now() - timedelta(days=30)  # statt 48h
 
-        orders = list(self.client.list_orders(marketplace.marketplace_id, since))
-        self.logger.log(f"{marketplace.marketplace_id}: Orders von Amazon erhalten: {len(orders)} (since={since.isoformat()})")
+        orders = list(self.client.list_orders(marketplace.marketplace_id, since, created_before=end_datetime))
+        self.logger.log(
+            f"{marketplace.marketplace_id}: Orders von Amazon erhalten: {len(orders)} "
+            f"(since={since.isoformat()}, until={end_datetime.isoformat() if end_datetime else 'offen'})"
+        )
 
         for order_payload in orders:
             amazon_order_id = order_payload.get("AmazonOrderId")

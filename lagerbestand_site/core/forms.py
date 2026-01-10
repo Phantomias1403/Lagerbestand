@@ -142,6 +142,27 @@ class OrderAnalysisForm(StyledFormMixin, forms.Form):
     sort = forms.ChoiceField(label='Sortierung', required=False, choices=SORT_CHOICES)
 
 
+class ApiImportRangeForm(StyledFormMixin, forms.Form):
+    start_datetime = forms.DateTimeField(
+        label='Von',
+        required=False,
+        widget=forms.DateTimeInput(attrs={'type': 'datetime-local'}),
+    )
+    end_datetime = forms.DateTimeField(
+        label='Bis',
+        required=False,
+        widget=forms.DateTimeInput(attrs={'type': 'datetime-local'}),
+    )
+
+    def clean(self):
+        cleaned = super().clean()
+        start = cleaned.get('start_datetime')
+        end = cleaned.get('end_datetime')
+        if start and end and start > end:
+            raise forms.ValidationError('Der Zeitraum ist ungültig. Bitte ein korrektes Start- und Enddatum wählen.')
+        return cleaned
+
+
 OrderItemFormSet = inlineformset_factory(
     models.Order,
     models.OrderItem,
