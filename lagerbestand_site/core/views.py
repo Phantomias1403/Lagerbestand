@@ -346,7 +346,7 @@ class OrderAnalysisView(OptionalLoginRequiredMixin, TemplateView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         form = forms.OrderAnalysisForm(self.request.GET or None)
-        orders = models.Order.objects.select_related('user').prefetch_related('items__article')
+        orders = models.Order.objects.select_related('user').prefetch_related('items__article').all()
         if form.is_valid():
             start_date = form.cleaned_data.get('start_date')
             end_date = form.cleaned_data.get('end_date')
@@ -366,7 +366,7 @@ class OrderAnalysisView(OptionalLoginRequiredMixin, TemplateView):
             F('quantity') * F('unit_price'),
             output_field=DecimalField(max_digits=12, decimal_places=2),
         )
-        item_queryset = models.OrderItem.objects.filter(order__in=orders)
+        item_queryset = models.OrderItem.objects.filter(order__in=orders.values('pk'))
         total_revenue = item_queryset.aggregate(total=Sum(revenue_expression))['total'] or Decimal("0")
         marketplace_rows = (
             item_queryset

@@ -151,8 +151,11 @@ class AmazonOrderImporter:
                     order_total_amount=parse_decimal(total.get('Amount')),
                     order_total_currency=total.get('CurrencyCode', ''),
                 )
+            core_order = self._sync_core_order(order, payload)
             for item_payload in self.client.list_order_items(amazon_order_id):
                 self._store_item(order, item_payload)
+                self._store_core_item(core_order, item_payload)
+            self._update_core_order_quantity(core_order)
         return True
 
     def _store_item(self, order: AmazonOrder, payload: Dict[str, Any]) -> None:
@@ -167,6 +170,75 @@ class AmazonOrderImporter:
             item_price_currency=price.get('CurrencyCode', order.order_total_currency),
             article=article,
         )
+
+    def _sync_core_order(self, order: AmazonOrder, payload: Dict[str, Any]) -> core_models.Order:
+        status = self._map_order_status(payload.get('OrderStatus'))
+        customer_name = self._build_customer_name(payload)
+        customer_address = self._build_customer_address(payload)
+        core_order, _ = core_models.Order.objects.update_or_create(
+            order_number=order.amazon_order_id,
+            defaults={
+                'customer_name': customer_name,
+                'customer_address': customer_address,
+                'status': status,
+                'marketplace': 'amazon',
+                'user': self.logger.user,
+                'order_quantity': 0,
+                'created_at': order.purchase_date,
+            },
+        )
+        core_order.items.all().delete()
+        return core_order
+
+    def _store_core_item(self, order: core_models.Order, payload: Dict[str, Any]) -> None:
+        price = payload.get('ItemPrice') or {}
+        quantity = int(payload.get('QuantityOrdered', 0) or 0)
+        if quantity <= 0:
+            return
+        sku = payload.get('SellerSKU', '')
+        article = core_models.Article.objects.filter(sku=sku).first()
+        if not article:
+            return
+        total_amount = parse_decimal(price.get('Amount'))
+        unit_price = total_amount / quantity if quantity else total_amount
+        core_models.OrderItem.objects.create(
+            order=order,
+            article=article,
+            quantity=quantity,
+            unit_price=unit_price,
+        )
+
+    def _update_core_order_quantity(self, order: core_models.Order) -> None:
+        order.order_quantity = sum(item.quantity for item in order.items.all())
+        order.save(update_fields=['order_quantity'])
+
+    def _build_customer_name(self, payload: Dict[str, Any]) -> str:
+        address = payload.get('ShippingAddress') or {}
+        return address.get('Name') or payload.get('BuyerName') or 'Amazon Kunde'
+
+    def _build_customer_address(self, payload: Dict[str, Any]) -> str:
+        address = payload.get('ShippingAddress') or {}
+        parts = [
+            address.get('AddressLine1'),
+            address.get('AddressLine2'),
+            address.get('AddressLine3'),
+            address.get('PostalCode'),
+            address.get('City'),
+            address.get('StateOrRegion'),
+            address.get('CountryCode'),
+        ]
+        return '\n'.join([part for part in parts if part])
+
+    def _map_order_status(self, status: Any) -> str:
+        status_value = str(status or '').lower()
+        if status_value in {'canceled', 'cancelled'}:
+            return 'storniert'
+        if status_value in {'shipped', 'delivered', 'closed'}:
+            return 'abgeschlossen'
+        if status_value in {'paid'}:
+            return 'bezahlt'
+        return 'offen'
+
 
     def _parse_datetime(self, value: Any):
         if not value:
