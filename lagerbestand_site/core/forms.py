@@ -113,7 +113,7 @@ class CSVImportForm(forms.Form):
 class OrderForm(StyledFormMixin, forms.ModelForm):
     class Meta:
         model = models.Order
-        fields = ['customer_name', 'customer_address', 'status', 'user', 'order_number']
+        fields = ['customer_name', 'customer_address', 'status', 'marketplace', 'user', 'order_number']
         widgets = {
             'customer_address': forms.Textarea(attrs={'rows': 3}),
         }
@@ -123,6 +123,23 @@ class OrderItemForm(StyledFormMixin, forms.ModelForm):
     class Meta:
         model = models.OrderItem
         fields = ['article', 'quantity', 'unit_price']
+
+
+class OrderAnalysisForm(StyledFormMixin, forms.Form):
+    SORT_CHOICES = [
+        ('desc', 'Neueste zuerst'),
+        ('asc', 'Älteste zuerst'),
+    ]
+    ALL_MARKETPLACES = 'all'
+
+    start_date = forms.DateField(label='Von', required=False, widget=forms.DateInput(attrs={'type': 'date'}))
+    end_date = forms.DateField(label='Bis', required=False, widget=forms.DateInput(attrs={'type': 'date'}))
+    marketplace = forms.ChoiceField(
+        label='Marktplatz',
+        required=False,
+        choices=[(ALL_MARKETPLACES, 'Alle Marktplätze')] + list(models.Order.MARKETPLACE_CHOICES),
+    )
+    sort = forms.ChoiceField(label='Sortierung', required=False, choices=SORT_CHOICES)
 
 
 OrderItemFormSet = inlineformset_factory(

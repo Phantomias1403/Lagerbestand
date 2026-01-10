@@ -127,6 +127,13 @@ class EndingComponent(models.Model):
 
 class Order(TimestampedModel):
     id: int
+    MARKETPLACE_CHOICES = [
+        ("amazon", "Amazon"),
+        ("ebay", "Ebay"),
+        ("etsy", "Etsy"),
+        ("fankultur", "Fankultur Seite"),
+        ("unbekannt", "Unbekannt"),
+    ]
     STATUS_CHOICES = [
         ("offen", "Offen"),
         ("bezahlt", "Bezahlt"),
@@ -137,6 +144,7 @@ class Order(TimestampedModel):
     customer_name = models.CharField(max_length=120)
     customer_address = models.TextField(blank=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="offen")
+    marketplace = models.CharField(max_length=30, choices=MARKETPLACE_CHOICES, default="unbekannt")
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,

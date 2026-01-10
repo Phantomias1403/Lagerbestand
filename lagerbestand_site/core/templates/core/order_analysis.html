@@ -1,0 +1,90 @@
+{% extends 'core/base.html' %}
+{% block title %}Bestell-Analyse{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h1>Bestell-Analyse</h1>
+    <a class="btn btn-outline-primary" href="{% url 'order_list' %}">Zurück zu Bestellungen</a>
+</div>
+
+<form method="get" class="card card-body border-0 shadow-sm mb-4">
+    <div class="row g-3 align-items-end">
+        <div class="col-md-3">
+            {{ form.start_date.label_tag }} {{ form.start_date }}
+        </div>
+        <div class="col-md-3">
+            {{ form.end_date.label_tag }} {{ form.end_date }}
+        </div>
+        <div class="col-md-3">
+            {{ form.marketplace.label_tag }} {{ form.marketplace }}
+        </div>
+        <div class="col-md-3">
+            {{ form.sort.label_tag }} {{ form.sort }}
+        </div>
+    </div>
+    <div class="mt-3">
+        <button class="btn btn-primary">Filtern</button>
+        <a class="btn btn-outline-secondary" href="{% url 'order_analysis' %}">Zurücksetzen</a>
+    </div>
+</form>
+
+<div class="row g-3 mb-4">
+    <div class="col-md-4">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+                <p class="text-muted mb-1">Gesamtbestellungen</p>
+                <h2 class="h4 mb-0">{{ total_orders }}</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+                <p class="text-muted mb-1">Gesamter Verdienst</p>
+                <h2 class="h4 mb-0">{{ total_revenue|floatformat:2 }} €</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+                <p class="text-muted mb-2">Verdienst pro Marktplatz</p>
+                <ul class="list-unstyled mb-0">
+                    {% for entry in marketplace_totals %}
+                        <li class="d-flex justify-content-between">
+                            <span>{{ entry.label }}</span>
+                            <span>{{ entry.total|floatformat:2 }} €</span>
+                        </li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="table-responsive">
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Kunde</th>
+                <th>Marktplatz</th>
+                <th>Datum</th>
+                <th>Gesamt</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for order in orders %}
+            <tr>
+                <td>{{ order.pk }}</td>
+                <td>{{ order.customer_name }}</td>
+                <td>{{ order.get_marketplace_display }}</td>
+                <td>{{ order.created_at|date:"d.m.Y" }}</td>
+                <td>{{ order.total_price|floatformat:2 }} €</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="5" class="text-center">Keine Bestellungen für die Auswahl vorhanden.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

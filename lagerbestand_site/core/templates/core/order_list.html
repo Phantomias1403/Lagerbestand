@@ -45,6 +45,7 @@
                 <th>ID</th>
                 <th>Kunde</th>
                 <th>Status</th>
+                <th>Marktplatz</th>
                 <th>Datum</th>
                 <th>Gesamt</th>
                 <th>Aktionen</th>
@@ -56,6 +57,7 @@
                 <td>{{ order.pk }}</td>
                 <td>{{ order.customer_name }}</td>
                 <td>{{ order.get_status_display }}</td>
+                <td>{{ order.get_marketplace_display }}</td>
                 <td>{{ order.created_at|date:"d.m.Y" }}</td>
                 <td>{{ order.total_price|floatformat:2 }} €</td>
                 <td>
@@ -68,7 +70,7 @@
                 </td>
             </tr>
             {% empty %}
-            <tr><td colspan="6" class="text-center">Keine Bestellungen vorhanden.</td></tr>
+            <tr><td colspan="7" class="text-center">Keine Bestellungen vorhanden.</td></tr>
             {% endfor %}
         </tbody>
     </table>

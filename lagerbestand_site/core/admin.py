@@ -27,8 +27,8 @@ class ArticleAdmin(admin.ModelAdmin):
 
 @admin.register(models.Order)
 class OrderAdmin(admin.ModelAdmin):
-    list_display = ['id', 'customer_name', 'status', 'created_at']
-    list_filter = ['status', 'created_at']
+    list_display = ['id', 'customer_name', 'status', 'marketplace', 'created_at']
+    list_filter = ['status', 'marketplace', 'created_at']
     search_fields = ['customer_name', 'order_number']
 
 
