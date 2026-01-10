@@ -4,6 +4,7 @@ import csv
 import io
 import os
 from datetime import datetime
+from decimal import Decimal
 
 from django import forms as django_forms
 from django.contrib import messages
@@ -18,7 +19,7 @@ from django.views.generic import DetailView, ListView, TemplateView
 from django.views.generic.edit import FormView
 from django.views.generic.base import RedirectView
 from django.db import transaction
-from django.db.models import Q, F
+from django.db.models import Q, F, Sum, DecimalField, ExpressionWrapper
 
 from amazon.importer import AmazonOrderImporter
 from amazon.models import AmazonMarketplace, AmazonOrder
@@ -339,6 +340,59 @@ class OrderListView(OptionalLoginRequiredMixin, ListView):
         return context
 
 
+class OrderAnalysisView(OptionalLoginRequiredMixin, TemplateView):
+    template_name = 'core/order_analysis.html'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        form = forms.OrderAnalysisForm(self.request.GET or None)
+        orders = models.Order.objects.select_related('user').prefetch_related('items__article')
+        if form.is_valid():
+            start_date = form.cleaned_data.get('start_date')
+            end_date = form.cleaned_data.get('end_date')
+            marketplace = form.cleaned_data.get('marketplace') or forms.OrderAnalysisForm.ALL_MARKETPLACES
+            sort = form.cleaned_data.get('sort') or 'desc'
+            if start_date:
+                orders = orders.filter(created_at__date__gte=start_date)
+            if end_date:
+                orders = orders.filter(created_at__date__lte=end_date)
+            if marketplace != forms.OrderAnalysisForm.ALL_MARKETPLACES:
+                orders = orders.filter(marketplace=marketplace)
+        else:
+            sort = 'desc'
+        ordering = 'created_at' if sort == 'asc' else '-created_at'
+        orders = orders.order_by(ordering)
+        revenue_expression = ExpressionWrapper(
+            F('quantity') * F('unit_price'),
+            output_field=DecimalField(max_digits=12, decimal_places=2),
+        )
+        item_queryset = models.OrderItem.objects.filter(order__in=orders)
+        total_revenue = item_queryset.aggregate(total=Sum(revenue_expression))['total'] or Decimal("0")
+        marketplace_rows = (
+            item_queryset
+            .values('order__marketplace')
+            .annotate(total=Sum(revenue_expression))
+            .order_by('order__marketplace')
+        )
+        totals_by_marketplace = {row['order__marketplace']: row['total'] or Decimal("0") for row in marketplace_rows}
+        marketplace_totals = [
+            {
+                'code': code,
+                'label': label,
+                'total': totals_by_marketplace.get(code, Decimal("0")),
+            }
+            for code, label in models.Order.MARKETPLACE_CHOICES
+        ]
+        context.update({
+            'form': form,
+            'orders': orders,
+            'total_revenue': total_revenue,
+            'total_orders': orders.count(),
+            'marketplace_totals': marketplace_totals,
+        })
+        return context
+
+
 class OrderDetailView(OptionalLoginRequiredMixin, DetailView):
     model = models.Order
     template_name = 'core/order_detail.html'
@@ -550,13 +604,14 @@ class BackupExportView(OptionalLoginRequiredMixin, View):
 
             output = io.StringIO()
             writer = csv.writer(output)
-            writer.writerow(['id', 'customer_name', 'customer_address', 'status', 'created_at', 'user_id'])
+            writer.writerow(['id', 'customer_name', 'customer_address', 'status', 'marketplace', 'created_at', 'user_id'])
             for order in models.Order.objects.all():
                 writer.writerow([
                     order.pk,
                     order.customer_name,
                     order.customer_address,
                     order.status,
+                    order.marketplace,
                     order.created_at.isoformat(),
                     order.user.id if order.user else '',
                 ])
@@ -631,6 +686,7 @@ class BackupImportView(OptionalLoginRequiredMixin, FormView):
                                 'customer_name': row.get('customer_name', ''),
                                 'customer_address': row.get('customer_address', ''),
                                 'status': row.get('status', 'offen'),
+                                'marketplace': row.get('marketplace', 'unbekannt'),
                             }
                         )
                         order_map[oid] = order

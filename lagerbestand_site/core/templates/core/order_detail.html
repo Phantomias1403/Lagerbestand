@@ -5,6 +5,7 @@
 <p>
     <strong>Kunde:</strong> {{ order.customer_name }}<br>
     <strong>Status:</strong> {{ order.get_status_display }}<br>
+    <strong>Marktplatz:</strong> {{ order.get_marketplace_display }}<br>
     <strong>Adresse:</strong><br>
     <pre>{{ order.customer_address }}</pre>
 </p>
