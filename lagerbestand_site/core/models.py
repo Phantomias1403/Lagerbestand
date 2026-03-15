@@ -131,6 +131,7 @@ class Order(TimestampedModel):
         ("amazon", "Amazon"),
         ("ebay", "Ebay"),
         ("etsy", "Etsy"),
+        ("easybill", "Easybill"),
         ("fankultur", "Fankultur Seite"),
         ("unbekannt", "Unbekannt"),
     ]

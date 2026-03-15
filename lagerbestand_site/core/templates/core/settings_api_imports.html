@@ -96,6 +96,36 @@
             </div>
         </div>
     </div>
+
+    <div class="col-12">
+        <div class="glass-inner settings-card">
+            <div class="d-flex flex-column flex-lg-row gap-3 align-items-lg-center justify-content-between">
+                <div>
+                    <h2 class="h5 mb-1">Easybill Bestellungen</h2>
+                    <p class="text-muted mb-0">Importiere die neuesten Easybill-Bestellungen und buche den Lagerbestand automatisch aus.</p>
+                </div>
+                <div class="d-flex flex-column flex-sm-row gap-2">
+                    <form method="post">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="test_easybill">
+                        <button class="btn btn-outline-secondary px-4">Verbindung testen</button>
+                    </form>
+                    <form method="post">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="run_easybill_latest_orders">
+                        <button class="btn btn-primary px-4">Neueste Bestellungen importieren</button>
+                    </form>
+                </div>
+            </div>
+            <div class="form-text mt-3">Für den Import wird die Umgebungsvariable <code>EASYBILL_API_KEY</code> benötigt.</div>
+            {% if easybill_missing_env_vars %}
+                <div class="alert alert-warning mt-3 mb-0">
+                    Fehlende Umgebungsvariablen: {{ easybill_missing_env_vars|join:', ' }}.
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
     <div class="col-12">
         <div class="glass-inner settings-card">
             <div class="d-flex flex-column flex-lg-row gap-3 align-items-lg-center justify-content-between">

@@ -93,3 +93,19 @@ export DJANGO_DEBUG=1
 python lagerbestand_site/manage.py migrate
 python lagerbestand_site/manage.py runserver
 
+
+
+## Easybill-Bestellungen
+
+* In den API-Import-Einstellungen gibt es nun einen eigenen Easybill-Import mit Verbindungs-Test.
+* Der Import holt die neuesten Bestellungen und legt/aktualisiert diese in der Bestellübersicht.
+* Beim Import wird der Lagerbestand automatisch anhand der importierten Positionen über Bewegungen angepasst.
+
+Erforderliche Umgebungsvariablen:
+
+```
+EASYBILL_API_KEY
+# optional:
+EASYBILL_API_URL=https://api.easybill.de/rest/v1
+EASYBILL_ORDERS_ENDPOINT=/orders
+```

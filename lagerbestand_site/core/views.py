@@ -27,6 +27,7 @@ from amazon.models import AmazonMarketplace, AmazonOrder
 from amazon.sp_api import AmazonSpApiError
 
 from . import forms, models, utils
+from .easybill import EasybillApiError, EasybillOrderImporter
 
 User = get_user_model()
 
@@ -425,18 +426,12 @@ class OrderEditView(OptionalLoginRequiredMixin, View):
         if form.is_valid() and formset.is_valid():
             with transaction.atomic():
                 order = form.save()
-                if self.order:
-                    for movement in models.Movement.objects.filter(order=order):
-                        if movement.article:
-                            movement.article.stock += abs(movement.quantity)
-                            movement.article.save(update_fields=['stock'])
-                    models.Movement.objects.filter(order=order).delete()
                 formset.instance = order
                 formset.save()
                 total_qty = sum(item.quantity for item in order.items.all())
                 order.order_quantity = total_qty
                 order.save(update_fields=['order_quantity'])
-                utils.allocate_stock_for_order(order)
+                utils.sync_stock_movements_for_order(order)
                 action = 'Bestellung aktualisiert' if self.order else 'Bestellung erstellt'
                 log_activity(request, action)
                 messages.success(request, 'Bestellung gespeichert')
@@ -536,12 +531,17 @@ class ApiImportView(OptionalLoginRequiredMixin, View):
         )
         return [name for name in required if not os.environ.get(name)]
 
+    def _easybill_missing_env_vars(self) -> list[str]:
+        required = ('EASYBILL_API_KEY',)
+        return [name for name in required if not os.environ.get(name)]
+
     def get(self, request: HttpRequest) -> HttpResponse:
         marketplaces = AmazonMarketplace.objects.all()
         return render(request, self.template_name, {
             'marketplaces': marketplaces,
             'amazon_missing_env_vars': self._amazon_missing_env_vars(),
             'api_import_form': forms.ApiImportRangeForm(),
+            'easybill_missing_env_vars': self._easybill_missing_env_vars(),
             'debug_stats': self._debug_stats(),
         })
 
@@ -585,6 +585,7 @@ class ApiImportView(OptionalLoginRequiredMixin, View):
                         'marketplaces': marketplaces,
                         'amazon_missing_env_vars': self._amazon_missing_env_vars(),
                         'api_import_form': import_form,
+                        'easybill_missing_env_vars': self._easybill_missing_env_vars(),
                         'debug_stats': self._debug_stats(),
                     })
                 start_datetime = import_form.cleaned_data.get('start_datetime')
@@ -612,6 +613,26 @@ class ApiImportView(OptionalLoginRequiredMixin, View):
             except AmazonSpApiError as exc:
                 messages.error(request, f'Amazon Import fehlgeschlagen: {exc}.')
             return redirect('settings_api_imports')
+
+        if action == 'test_easybill':
+            try:
+                importer = EasybillOrderImporter()
+                importer.client.list_latest_orders(limit=1)
+                messages.success(request, 'Easybill API Verbindung erfolgreich getestet.')
+                log_activity(request, 'Easybill API Verbindung getestet')
+            except EasybillApiError as exc:
+                messages.error(request, f'Easybill API Verbindung fehlgeschlagen: {exc}.')
+            return redirect('settings_api_imports')
+        if action == 'run_easybill_latest_orders':
+            try:
+                importer = EasybillOrderImporter()
+                created, updated = importer.import_latest_orders()
+                messages.success(request, f'Easybill Bestellungen importiert. Neu: {created}, aktualisiert: {updated}.')
+                log_activity(request, 'Easybill Bestellungen importiert')
+            except EasybillApiError as exc:
+                messages.error(request, f'Easybill Import fehlgeschlagen: {exc}.')
+            return redirect('settings_api_imports')
+
         if action == 'debug_delete_all_orders':
             with transaction.atomic():
                 for order in models.Order.objects.all():

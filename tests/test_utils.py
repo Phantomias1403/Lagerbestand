@@ -20,9 +20,12 @@ call_command('migrate', run_syncdb=True, verbosity=0)
 
 
 
+from unittest.mock import patch
+
 from django.test import TestCase
 
 from lagerbestand_site.core import models, utils
+from lagerbestand_site.core.easybill import EasybillOrderImporter
 
 
 class UtilsTestCase(TestCase):
@@ -100,3 +103,56 @@ class UtilsTestCase(TestCase):
     def test_get_default_minimum_stock(self):
         self.assertEqual(utils.get_default_minimum_stock(self.category), 100)
         self.assertEqual(utils.get_default_minimum_stock(self.other), 20)
+
+
+class EasybillImporterTestCase(TestCase):
+    def setUp(self):
+        self.category = models.Category.objects.create(name='Sticker', prefix='ST-', default_price=5.0, default_min_stock=100)
+        self.article = models.Article.objects.create(
+            name='Sticker 1',
+            sku='ST-001',
+            category=self.category,
+            stock=10,
+            minimum_stock=1,
+            price=5.0,
+        )
+
+    @patch('lagerbestand_site.core.easybill.EasybillClient.list_latest_orders')
+    @patch('lagerbestand_site.core.easybill.EasybillClient._required_env', return_value='dummy')
+    def test_import_latest_orders_updates_stock_without_duplicate_deductions(self, _required_env, mocked_list_orders):
+        mocked_list_orders.side_effect = [
+            [
+                {
+                    'id': 123,
+                    'number': 'EB-1001',
+                    'status': 'paid',
+                    'created_at': '2025-01-10T10:00:00Z',
+                    'customer': {'first_name': 'Max', 'last_name': 'Mustermann'},
+                    'items': [{'sku': 'ST-001', 'quantity': 2, 'price': '4.99'}],
+                }
+            ],
+            [
+                {
+                    'id': 123,
+                    'number': 'EB-1001',
+                    'status': 'paid',
+                    'created_at': '2025-01-10T10:00:00Z',
+                    'customer': {'first_name': 'Max', 'last_name': 'Mustermann'},
+                    'items': [{'sku': 'ST-001', 'quantity': 3, 'price': '4.99'}],
+                }
+            ],
+        ]
+
+        importer = EasybillOrderImporter()
+        importer.import_latest_orders()
+        self.article.refresh_from_db()
+        self.assertEqual(self.article.stock, 8)
+
+        importer.import_latest_orders()
+        self.article.refresh_from_db()
+        self.assertEqual(self.article.stock, 7)
+
+        order = models.Order.objects.get(order_number='EB-1001', marketplace='easybill')
+        self.assertEqual(order.items.count(), 1)
+        self.assertEqual(order.order_quantity, 3)
+        self.assertEqual(models.Movement.objects.filter(order=order).count(), 1)
