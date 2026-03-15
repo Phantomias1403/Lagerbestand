@@ -227,6 +227,16 @@ def allocate_stock_for_order(order: models.Order) -> None:
         )
 
 
+def sync_stock_movements_for_order(order: models.Order) -> None:
+    """Rebuild stock movements for an order to avoid duplicate deductions."""
+    with transaction.atomic():
+        for movement in models.Movement.objects.filter(order=order).select_related('article'):
+            if movement.article:
+                models.Article.objects.filter(pk=movement.article_id).update(stock=F('stock') + abs(movement.quantity))
+        models.Movement.objects.filter(order=order).delete()
+        allocate_stock_for_order(order)
+
+
 def apply_category_defaults(category: models.Category) -> int:
     prefix = (category.prefix or '').strip()
     if not prefix:
