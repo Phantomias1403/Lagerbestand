@@ -21,6 +21,12 @@ class EasybillClient:
         self.orders_endpoint = (os.environ.get('EASYBILL_ORDERS_ENDPOINT') or '/orders').strip()
         self.api_key = self._required_env('EASYBILL_API_KEY')
 
+    def _build_url(self, path: str) -> str:
+        cleaned_path = (path or '').strip()
+        if cleaned_path.startswith(('http://', 'https://')):
+            return cleaned_path
+        return f"{self.base_url}/{cleaned_path.lstrip('/')}"
+
     def _required_env(self, name: str) -> str:
         value = os.environ.get(name)
         if not value:
@@ -28,7 +34,7 @@ class EasybillClient:
         return value
 
     def _request(self, method: str, path: str, params: dict[str, Any] | None = None) -> Any:
-        url = f"{self.base_url}/{path.lstrip('/')}"
+        url = self._build_url(path)
         try:
             response = requests.request(
                 method,
@@ -36,6 +42,7 @@ class EasybillClient:
                 params=params,
                 headers={
                     'X-TOKEN': self.api_key,
+                    'Authorization': f'Bearer {self.api_key}',
                     'Accept': 'application/json',
                 },
                 timeout=30,
