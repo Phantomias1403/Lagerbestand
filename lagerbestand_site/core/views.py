@@ -532,7 +532,7 @@ class ApiImportView(OptionalLoginRequiredMixin, View):
         return [name for name in required if not os.environ.get(name)]
 
     def _easybill_missing_env_vars(self) -> list[str]:
-        required = ('EASYBILL_API_KEY',)
+        required = ('EASYBILL_API_KEY', 'EASYBILL_USER_ID')
         return [name for name in required if not os.environ.get(name)]
 
     def get(self, request: HttpRequest) -> HttpResponse:
