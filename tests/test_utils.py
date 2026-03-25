@@ -126,7 +126,9 @@ class EasybillImporterTestCase(TestCase):
                     'id': 123,
                     'number': 'EB-1001',
                     'status': 'paid',
+                    'order_date': '2025-01-09T08:00:00Z',
                     'created_at': '2025-01-10T10:00:00Z',
+                    'total_gross': '19.96',
                     'customer': {'first_name': 'Max', 'last_name': 'Mustermann'},
                     'items': [{'sku': 'ST-001', 'quantity': 2, 'price': '4.99'}],
                 }
@@ -136,7 +138,9 @@ class EasybillImporterTestCase(TestCase):
                     'id': 123,
                     'number': 'EB-1001',
                     'status': 'paid',
+                    'order_date': '2025-01-09T08:00:00Z',
                     'created_at': '2025-01-10T10:00:00Z',
+                    'total_gross': '14.97',
                     'customer': {'first_name': 'Max', 'last_name': 'Mustermann'},
                     'items': [{'sku': 'ST-001', 'quantity': 3, 'price': '4.99'}],
                 }
@@ -156,3 +160,5 @@ class EasybillImporterTestCase(TestCase):
         self.assertEqual(order.items.count(), 1)
         self.assertEqual(order.order_quantity, 3)
         self.assertEqual(models.Movement.objects.filter(order=order).count(), 1)
+        self.assertEqual(str(order.imported_total_price), '14.97')
+        self.assertEqual(order.created_at.date().isoformat(), '2025-01-09')

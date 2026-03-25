@@ -169,10 +169,11 @@ class EasybillOrderImporter:
 
     def _order_sort_key(self, payload: dict[str, Any]) -> datetime:
         return self._parse_datetime(
-            payload.get('created_at')
-            or payload.get('updated_at')
+            payload.get('order_date')
             or payload.get('document_date')
             or payload.get('shipping_date')
+            or payload.get('created_at')
+            or payload.get('updated_at')
         )
 
     def _sync_order(self, payload: dict[str, Any]) -> bool:
@@ -187,6 +188,7 @@ class EasybillOrderImporter:
             'marketplace': 'easybill',
             'order_quantity': 0,
             'created_at': self._order_sort_key(payload),
+            'imported_total_price': self._order_total(payload),
         }
         with transaction.atomic():
             order, created = models.Order.objects.update_or_create(
@@ -282,6 +284,16 @@ class EasybillOrderImporter:
             return Decimal(str(value))
         except Exception:
             return Decimal('0')
+
+    def _order_total(self, payload: dict[str, Any]) -> Decimal:
+        return self._parse_decimal(
+            payload.get('total_gross')
+            or payload.get('total_price_gross')
+            or payload.get('sum_total_gross')
+            or payload.get('total')
+            or payload.get('amount')
+            or 0
+        )
 
     def _parse_datetime(self, value: Any) -> datetime:
         if not value:
