@@ -8,43 +8,43 @@ from .easybill import EasybillClient, EasybillOrderImporter
 
 
 class EasybillClientTestCase(TestCase):
-    @mock.patch.dict('os.environ', {'EASYBILL_API_KEY': 'test-key', 'EASYBILL_USER_ID': '42'}, clear=True)
-    def test_request_sends_import_manager_headers(self):
+    @mock.patch.dict('os.environ', {'EASYBILL_API_KEY': 'test-key'}, clear=True)
+    def test_request_uses_bearer_token_for_rest_api(self):
         response = mock.Mock()
         response.status_code = 200
+        response.text = '[]'
         response.json.return_value = []
 
         with mock.patch('core.easybill.requests.request', return_value=response) as mocked_request:
             client = EasybillClient()
-            client.list_latest_orders(limit=1)
+            client.get_customers_test()
 
         headers = mocked_request.call_args[1]['headers']
-        self.assertEqual(headers['HTTP_X_EASYBILL_AUTH_KEY'], 'test-key')
-        self.assertEqual(headers['HTTP_X_EASYBILL_USER_ID'], '42')
+        self.assertEqual(headers['Authorization'], 'Bearer test-key')
+        self.assertEqual(headers['Accept'], 'application/json')
 
     @mock.patch.dict(
         'os.environ',
         {
             'EASYBILL_API_KEY': 'test-key',
-            'EASYBILL_USER_ID': '42',
-            'EASYBILL_API_URL': 'https://import.easybill.de/api/v1',
-            'EASYBILL_ORDERS_ENDPOINT': 'https://import.easybill.de/api/v1/orders',
+            'EASYBILL_API_URL': 'https://api.easybill.de/rest/v1',
         },
         clear=True,
     )
-    def test_get_order_supports_absolute_orders_endpoint(self):
+    def test_get_document_uses_rest_api_documents_route(self):
         response = mock.Mock()
         response.status_code = 200
-        response.json.return_value = {'order_number': 'EB-1001'}
+        response.text = '{"id": 1001}'
+        response.json.return_value = {'id': 1001}
 
         with mock.patch('core.easybill.requests.request', return_value=response) as mocked_request:
             client = EasybillClient()
-            payload = client.get_order('EB-1001')
+            payload = client.get_document('1001')
 
-        self.assertEqual(payload['order_number'], 'EB-1001')
+        self.assertEqual(payload['id'], 1001)
         self.assertEqual(
-            mocked_request.call_args[0][1],
-            'https://import.easybill.de/api/v1/orders/EB-1001',
+            mocked_request.call_args[1]['url'],
+            'https://api.easybill.de/rest/v1/documents/1001',
         )
 
 
@@ -60,7 +60,7 @@ class EasybillOrderImporterTestCase(TestCase):
             price=Decimal('3.50'),
         )
 
-    @mock.patch.dict('os.environ', {'EASYBILL_API_KEY': 'test-key', 'EASYBILL_USER_ID': '42'}, clear=True)
+    @mock.patch.dict('os.environ', {'EASYBILL_API_KEY': 'test-key'}, clear=True)
     def test_import_order_creates_items_and_adjusts_stock_by_sku(self):
         payload = {
             'order_number': 'EB-1001',
@@ -87,7 +87,7 @@ class EasybillOrderImporterTestCase(TestCase):
         }
 
         importer = EasybillOrderImporter()
-        with mock.patch.object(importer.client, 'get_order', return_value=payload):
+        with mock.patch.object(importer.client, 'get_document', return_value=payload):
             created = importer.import_order('EB-1001')
 
         self.assertTrue(created)
@@ -105,7 +105,7 @@ class EasybillOrderImporterTestCase(TestCase):
         self.assertTrue(models.Movement.objects.filter(order=order, article=self.article, quantity=-3).exists())
 
 
-    @mock.patch.dict('os.environ', {'EASYBILL_API_KEY': 'test-key', 'EASYBILL_USER_ID': '42'}, clear=True)
+    @mock.patch.dict('os.environ', {'EASYBILL_API_KEY': 'test-key'}, clear=True)
     def test_import_order_matches_product_by_name_when_sku_missing(self):
         payload = {
             'order_number': 'EB-1002',
@@ -123,7 +123,7 @@ class EasybillOrderImporterTestCase(TestCase):
         }
 
         importer = EasybillOrderImporter()
-        with mock.patch.object(importer.client, 'get_order', return_value=payload):
+        with mock.patch.object(importer.client, 'get_document', return_value=payload):
             created = importer.import_order('EB-1002')
 
         self.assertTrue(created)
@@ -133,20 +133,20 @@ class EasybillOrderImporterTestCase(TestCase):
         self.assertEqual(item.article, self.article)
         self.assertEqual(order.external_total_price, Decimal('3.50'))
 
-    @mock.patch.dict('os.environ', {'EASYBILL_API_KEY': 'test-key', 'EASYBILL_USER_ID': '42'}, clear=True)
-    def test_import_latest_orders_fetches_details_before_syncing(self):
+    @mock.patch.dict('os.environ', {'EASYBILL_API_KEY': 'test-key'}, clear=True)
+    def test_import_latest_orders_fetches_document_details_before_syncing(self):
         importer = EasybillOrderImporter()
-        with mock.patch.object(importer.client, 'list_latest_orders', return_value=[{'order_number': 'EB-1001'}]), mock.patch.object(
+        with mock.patch.object(importer.client, 'list_documents', return_value=[{'id': '1001'}]), mock.patch.object(
             importer.client,
-            'get_order',
+            'get_document',
             return_value={
                 'order_number': 'EB-1001',
                 'status': 'paid',
                 'customer': {'name': 'Max Mustermann'},
                 'items': [{'item_number': 'ST-001', 'quantity': 1, 'unit_price_net': '3.50'}],
             },
-        ) as mocked_get_order:
+        ) as mocked_get_document:
             created, updated = importer.import_latest_orders()
 
         self.assertEqual((created, updated), (1, 0))
-        mocked_get_order.assert_called_once_with('EB-1001')
+        mocked_get_document.assert_called_once_with('1001')
