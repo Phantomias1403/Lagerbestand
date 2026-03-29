@@ -104,6 +104,35 @@ class EasybillOrderImporterTestCase(TestCase):
         self.assertEqual(self.article.stock, 7)
         self.assertTrue(models.Movement.objects.filter(order=order, article=self.article, quantity=-3).exists())
 
+
+    @mock.patch.dict('os.environ', {'EASYBILL_API_KEY': 'test-key', 'EASYBILL_USER_ID': '42'}, clear=True)
+    def test_import_order_matches_product_by_name_when_sku_missing(self):
+        payload = {
+            'order_number': 'EB-1002',
+            'status': 'paid',
+            'created_at': '2026-03-18T10:30:00Z',
+            'total_price': '3.50',
+            'customer': {'name': 'Erika Musterfrau'},
+            'items': [
+                {
+                    'title': 'Fan Sticker',
+                    'quantity': 1,
+                    'unit_price_net': '3.50',
+                }
+            ],
+        }
+
+        importer = EasybillOrderImporter()
+        with mock.patch.object(importer.client, 'get_order', return_value=payload):
+            created = importer.import_order('EB-1002')
+
+        self.assertTrue(created)
+        order = models.Order.objects.get(order_number='EB-1002', marketplace='easybill')
+        item = order.items.get()
+
+        self.assertEqual(item.article, self.article)
+        self.assertEqual(order.external_total_price, Decimal('3.50'))
+
     @mock.patch.dict('os.environ', {'EASYBILL_API_KEY': 'test-key', 'EASYBILL_USER_ID': '42'}, clear=True)
     def test_import_latest_orders_fetches_details_before_syncing(self):
         importer = EasybillOrderImporter()

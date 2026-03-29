@@ -69,6 +69,7 @@
                 <th>Kunde</th>
                 <th>Marktplatz</th>
                 <th>Datum</th>
+                <th>Produkte</th>
                 <th>Gesamt</th>
             </tr>
         </thead>
@@ -79,10 +80,17 @@
                 <td>{{ order.customer_name }}</td>
                 <td>{{ order.get_marketplace_display }}</td>
                 <td>{{ order.external_order_date|default:order.created_at|date:"d.m.Y" }}</td>
+                <td>
+                    {% for item in order.items.all %}
+                        {{ item.article.name }} ({{ item.quantity }}x){% if not forloop.last %}, {% endif %}
+                    {% empty %}
+                        -
+                    {% endfor %}
+                </td>
                 <td>{{ order.analysis_total|floatformat:2 }} €</td>
             </tr>
             {% empty %}
-            <tr><td colspan="5" class="text-center">Keine Bestellungen für die Auswahl vorhanden.</td></tr>
+            <tr><td colspan="6" class="text-center">Keine Bestellungen für die Auswahl vorhanden.</td></tr>
             {% endfor %}
         </tbody>
     </table>

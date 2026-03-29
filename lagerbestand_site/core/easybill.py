@@ -212,9 +212,20 @@ class EasybillOrderImporter:
                 continue
             sku = str(item.get('item_number') or item.get('sku') or item.get('number') or '').strip()
             quantity = int(item.get('quantity') or 0)
-            if not sku or quantity <= 0:
+            product_name = str(
+                item.get('title')
+                or item.get('name')
+                or item.get('description')
+                or item.get('product_name')
+                or ''
+            ).strip()
+            if quantity <= 0:
                 continue
-            article = models.Article.objects.filter(sku=sku).first()
+            article = None
+            if sku:
+                article = models.Article.objects.filter(sku=sku).first()
+            if not article and product_name:
+                article = models.Article.objects.filter(name__iexact=product_name).first()
             if not article:
                 continue
             unit_price = self._parse_decimal(
@@ -273,10 +284,12 @@ class EasybillOrderImporter:
     def _order_total(self, payload: dict[str, Any]) -> Decimal | None:
         for key in (
             'total_price_gross',
+            'total_price',
             'total_gross',
             'sum_gross',
             'amount',
             'total',
+            'grand_total',
         ):
             value = payload.get(key)
             if value is None or value == '':
