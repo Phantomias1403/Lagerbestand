@@ -544,7 +544,7 @@ class ApiImportView(OptionalLoginRequiredMixin, View):
         return [name for name in required if not os.environ.get(name)]
 
     def _easybill_missing_env_vars(self) -> list[str]:
-        required = ('EASYBILL_API_KEY', 'EASYBILL_USER_ID')
+        required = ('EASYBILL_API_KEY',)
         return [name for name in required if not os.environ.get(name)]
 
     def get(self, request: HttpRequest) -> HttpResponse:
@@ -629,7 +629,7 @@ class ApiImportView(OptionalLoginRequiredMixin, View):
         if action == 'test_easybill':
             try:
                 importer = EasybillOrderImporter()
-                importer.client.list_latest_orders(limit=1)
+                importer.client.get_customers_test()
                 messages.success(request, 'Easybill API Verbindung erfolgreich getestet.')
                 log_activity(request, 'Easybill API Verbindung getestet')
             except EasybillApiError as exc:

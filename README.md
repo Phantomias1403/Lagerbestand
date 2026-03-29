@@ -105,9 +105,7 @@ Erforderliche Umgebungsvariablen:
 
 ```
 EASYBILL_API_KEY
-EASYBILL_USER_ID
 # optional:
-IMPORT_MANAGER_USER_ID=<import-manager-user-id>
-EASYBILL_API_URL=https://import.easybill.de/api/v1
-EASYBILL_ORDERS_ENDPOINT=/orders
+EASYBILL_API_URL=https://api.easybill.de/rest/v1
+EASYBILL_AUTH_MODE=auto
 ```
