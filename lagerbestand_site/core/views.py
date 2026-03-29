@@ -19,7 +19,7 @@ from django.views.generic import DetailView, ListView, TemplateView
 from django.views.generic.edit import FormView
 from django.views.generic.base import RedirectView
 from django.db import transaction
-from django.db.models import Q, F, Sum, DecimalField, ExpressionWrapper
+from django.db.models import Q, F, Sum, DecimalField, ExpressionWrapper, Case, When
 from django.db.models.functions import Coalesce
 
 from amazon.importer import AmazonOrderImporter
@@ -372,7 +372,19 @@ class OrderAnalysisView(OptionalLoginRequiredMixin, TemplateView):
             F('items__quantity') * F('items__unit_price'),
             output_field=DecimalField(max_digits=12, decimal_places=2),
         )
-        orders = orders.annotate(analysis_total=Coalesce(Sum(order_total_expression), Decimal("0")))
+        orders = orders.annotate(
+            computed_total=Coalesce(Sum(order_total_expression), Decimal("0")),
+        ).annotate(
+            analysis_total=Case(
+                When(
+                    marketplace='easybill',
+                    external_total_price__isnull=False,
+                    then=F('external_total_price'),
+                ),
+                default=F('computed_total'),
+                output_field=DecimalField(max_digits=12, decimal_places=2),
+            ),
+        )
         item_queryset = models.OrderItem.objects.filter(order__in=orders.values_list('pk', flat=True))
         total_revenue = item_queryset.aggregate(total=Sum(revenue_expression))['total'] or Decimal("0")
         marketplace_rows = (

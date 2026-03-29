@@ -187,6 +187,8 @@ class EasybillOrderImporter:
             'marketplace': 'easybill',
             'order_quantity': 0,
             'created_at': self._order_sort_key(payload),
+            'external_order_date': self._order_date(payload),
+            'external_total_price': self._order_total(payload),
         }
         with transaction.atomic():
             order, created = models.Order.objects.update_or_create(
@@ -251,7 +253,36 @@ class EasybillOrderImporter:
             if combined:
                 return combined
             return str(customer.get('company_name') or '').strip() or 'Easybill Kunde'
+        shipping_address = payload.get('shipping_address') or {}
+        if isinstance(shipping_address, dict):
+            name = str(shipping_address.get('name') or '').strip()
+            if name:
+                return name
         return 'Easybill Kunde'
+
+    def _order_date(self, payload: dict[str, Any]) -> datetime:
+        return self._parse_datetime(
+            payload.get('document_date')
+            or payload.get('ordered_at')
+            or payload.get('order_date')
+            or payload.get('created_at')
+            or payload.get('updated_at')
+            or payload.get('shipping_date')
+        )
+
+    def _order_total(self, payload: dict[str, Any]) -> Decimal | None:
+        for key in (
+            'total_price_gross',
+            'total_gross',
+            'sum_gross',
+            'amount',
+            'total',
+        ):
+            value = payload.get(key)
+            if value is None or value == '':
+                continue
+            return self._parse_decimal(value)
+        return None
 
     def _customer_address(self, payload: dict[str, Any]) -> str:
         customer = payload.get('shipping_address') or payload.get('customer') or {}

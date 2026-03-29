@@ -155,6 +155,8 @@ class Order(TimestampedModel):
     )
     order_number = models.CharField(max_length=100, blank=True)
     order_quantity = models.PositiveIntegerField(default=0)
+    external_order_date = models.DateTimeField(null=True, blank=True)
+    external_total_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
 
     class Meta(TimestampedModel.Meta):
         ordering: ClassVar[list[str]] = ["-created_at"]
