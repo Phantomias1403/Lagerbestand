@@ -3,11 +3,15 @@ from __future__ import annotations
 import os
 from pathlib import Path
 from datetime import timedelta
+from dotenv import load_dotenv
 
 import environ
 
 
+
 BASE_DIR = Path(__file__).resolve().parent.parent
+load_dotenv(BASE_DIR / ".env")
+
 
 env = environ.Env()
 

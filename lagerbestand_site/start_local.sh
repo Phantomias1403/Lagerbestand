@@ -1,62 +1,66 @@
 #!/usr/bin/env bash
-# Automatischer Helfer zum lokalen Start der Lagerbestand-Webseite.
-# Erstellt (falls nötig) eine virtuelle Umgebung, installiert Abhängigkeiten,
-# setzt lokale Umgebungsvariablen, führt Migrationen aus und startet Django.
-
 set -euo pipefail
 
-# --- Projektverzeichnis bestimmen ---
+echo "[Debug] Starte Script..."
+
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$PROJECT_ROOT"
+echo "[Debug] PROJECT_ROOT=$PROJECT_ROOT"
 
-# --- Python-Binary finden (python3 oder python) ---
 if command -v python3 >/dev/null 2>&1; then
-  PY=python3
+  SYS_PY=python3
 elif command -v python >/dev/null 2>&1; then
-  PY=python
+  SYS_PY=python
 else
-  echo "[Fehler] Weder 'python3' noch 'python' gefunden. Bitte Python 3 installieren." >&2
+  echo "[Fehler] Weder 'python3' noch 'python' gefunden." >&2
   exit 1
 fi
+echo "[Debug] SYS_PY=$SYS_PY"
 
-# --- Virtuelle Umgebung vorbereiten ---
 VENV_DIR="${PROJECT_ROOT}/.venv"
 if [ ! -d "$VENV_DIR" ]; then
-  echo "[Info] Virtuelle Umgebung wird unter $VENV_DIR erstellt ..."
-  "$PY" -m venv "$VENV_DIR"
+  echo "[Info] Erstelle virtuelle Umgebung unter $VENV_DIR ..."
+  "$SYS_PY" -m venv "$VENV_DIR"
 fi
 
-# --- Virtuelle Umgebung aktivieren (Windows oder Unix) ---
-if [ -f "$VENV_DIR/Scripts/activate" ]; then
-  # Windows / Git Bash
-  # shellcheck disable=SC1090
-  source "$VENV_DIR/Scripts/activate"
-elif [ -f "$VENV_DIR/bin/activate" ]; then
-  # Linux / macOS
-  # shellcheck disable=SC1090
-  source "$VENV_DIR/bin/activate"
+if [ -x "$VENV_DIR/bin/python" ]; then
+  PY="$VENV_DIR/bin/python"
+elif [ -x "$VENV_DIR/Scripts/python.exe" ]; then
+  PY="$VENV_DIR/Scripts/python.exe"
 else
-  echo "[Fehler] Konnte die virtuelle Umgebung nicht aktivieren – keine activate-Datei gefunden." >&2
+  echo "[Fehler] Kein Python in der virtuellen Umgebung gefunden." >&2
   exit 1
 fi
 
-# --- Abhängigkeiten installieren ---
-echo "[Info] Python-Abhängigkeiten werden installiert/aktualisiert ..."
-"$PY" -m pip install --upgrade pip
-"$PY" -m pip install -r requirements.txt
+echo "[Debug] VENV_PY=$PY"
+"$PY" --version
 
-# --- Lokale Entwicklungs-Umgebungsvariablen ---
+if [ ! -f "$PROJECT_ROOT/requirements.txt" ]; then
+  echo "[Fehler] requirements.txt nicht gefunden unter: $PROJECT_ROOT/requirements.txt" >&2
+  exit 1
+fi
+
+if [ ! -f "$PROJECT_ROOT/lagerbestand_site/manage.py" ]; then
+  echo "[Fehler] manage.py nicht gefunden unter: $PROJECT_ROOT/lagerbestand_site/manage.py" >&2
+  exit 1
+fi
+
+echo "[Info] Installiere/aktualisiere Python-Abhängigkeiten ..."
+"$PY" -m pip install --upgrade pip
+"$PY" -m pip install -r "$PROJECT_ROOT/requirements.txt"
+
 export DB_ENGINE="${DB_ENGINE:-django.db.backends.sqlite3}"
 export DB_NAME="${DB_NAME:-${PROJECT_ROOT}/db.sqlite3}"
 export DJANGO_SECRET_KEY="${DJANGO_SECRET_KEY:-dev-local-secret-key}"
 export DJANGO_ALLOWED_HOSTS="${DJANGO_ALLOWED_HOSTS:-localhost,127.0.0.1}"
 export DJANGO_DEBUG="${DJANGO_DEBUG:-1}"
 
-# --- Migrationen anwenden ---
-echo "[Info] Führe Datenbankmigrationen aus ..."
-"$PY" lagerbestand_site/manage.py migrate
+echo "[Debug] DB_ENGINE=$DB_ENGINE"
+echo "[Debug] DB_NAME=$DB_NAME"
 
-# --- Django-Entwicklungsserver starten ---
+echo "[Info] Führe Migrationen aus ..."
+"$PY" "$PROJECT_ROOT/lagerbestand_site/manage.py" migrate --verbosity 2
+
 ADDR_PORT="${RUNSERVER_ADDR_PORT:-127.0.0.1:8000}"
 echo "[Info] Starte Django-Server auf ${ADDR_PORT} ..."
-exec "$PY" lagerbestand_site/manage.py runserver "$ADDR_PORT"
+exec "$PY" "$PROJECT_ROOT/lagerbestand_site/manage.py" runserver "$ADDR_PORT"
