@@ -66,6 +66,8 @@ class EasybillOrderImporterTestCase(TestCase):
             'order_number': 'EB-1001',
             'status': 'paid',
             'created_at': '2026-03-17T10:30:00Z',
+            'document_date': '2026-03-16T08:15:00Z',
+            'total_price_gross': '10.50',
             'customer': {
                 'name': 'Max Mustermann',
                 'email': 'max@example.com',
@@ -94,6 +96,8 @@ class EasybillOrderImporterTestCase(TestCase):
         self.article.refresh_from_db()
 
         self.assertEqual(order.customer_name, 'Max Mustermann')
+        self.assertEqual(order.external_total_price, Decimal('10.50'))
+        self.assertEqual(order.external_order_date.isoformat(), '2026-03-16T08:15:00+00:00')
         self.assertEqual(order.order_quantity, 3)
         self.assertEqual(item.article, self.article)
         self.assertEqual(item.quantity, 3)

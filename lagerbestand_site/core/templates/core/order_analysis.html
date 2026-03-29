@@ -78,7 +78,7 @@
                 <td>{{ order.pk }}</td>
                 <td>{{ order.customer_name }}</td>
                 <td>{{ order.get_marketplace_display }}</td>
-                <td>{{ order.created_at|date:"d.m.Y" }}</td>
+                <td>{{ order.external_order_date|default:order.created_at|date:"d.m.Y" }}</td>
                 <td>{{ order.analysis_total|floatformat:2 }} €</td>
             </tr>
             {% empty %}
