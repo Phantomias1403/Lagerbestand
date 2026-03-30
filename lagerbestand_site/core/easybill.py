@@ -8,6 +8,7 @@ from typing import Any
 
 import requests
 from django.db import transaction
+from django.db.utils import IntegrityError
 from django.utils import timezone
 
 from . import models, utils
@@ -367,8 +368,10 @@ class EasybillOrderImporter:
         if not derived_sku:
             return None
 
+        sticker_category = self._get_sticker_category()
         article_defaults = {
             "name": product_name or derived_sku,
+            "category": sticker_category,
             "stock": 0,
             "minimum_stock": 0,
             "price": Decimal("0"),
@@ -383,6 +386,25 @@ class EasybillOrderImporter:
             article.save(update_fields=["name"])
 
         return article
+
+    def _get_sticker_category(self) -> models.Category:
+        category = models.Category.objects.filter(name__iexact="Sticker").first()
+        if category:
+            return category
+
+        try:
+            category, _ = models.Category.objects.get_or_create(
+                name="Sticker",
+                defaults={"prefix": "STICKER"},
+            )
+            return category
+        except IntegrityError:
+            category = models.Category.objects.filter(name__iexact="Sticker").first()
+            if category:
+                return category
+            raise EasybillApiError(
+                "Kategorie 'Sticker' konnte für den Easybill-Import nicht erstellt werden."
+            )
 
     def _fallback_sku(self, product_name: str) -> str:
         cleaned_name = (product_name or "").strip()

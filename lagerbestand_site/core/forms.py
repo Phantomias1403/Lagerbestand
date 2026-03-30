@@ -212,6 +212,7 @@ class BackupImportForm(StyledFormMixin, forms.Form):
     file = forms.FileField(label='Backup-ZIP-Datei')
     include_articles = forms.BooleanField(required=False, initial=True)
     include_orders = forms.BooleanField(required=False, initial=True)
+    include_settings = forms.BooleanField(required=False, initial=False)
 
 
 class MessageForm(StyledFormMixin, forms.ModelForm):
