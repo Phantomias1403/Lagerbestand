@@ -134,6 +134,54 @@ class EasybillOrderImporterTestCase(TestCase):
         self.assertEqual(order.external_total_price, Decimal('3.50'))
 
     @mock.patch.dict('os.environ', {'EASYBILL_API_KEY': 'test-key'}, clear=True)
+    def test_import_order_creates_article_when_missing_and_uses_imported_sku(self):
+        payload = {
+            'order_number': 'EB-1003',
+            'status': 'paid',
+            'customer': {'name': 'SKU Test'},
+            'items': [
+                {
+                    'item_number': 'SKU-NEW-001',
+                    'title': 'Neuer Artikel',
+                    'quantity': 2,
+                    'unit_price_net': '4.00',
+                }
+            ],
+        }
+
+        importer = EasybillOrderImporter()
+        with mock.patch.object(importer.client, 'get_document', return_value=payload):
+            created = importer.import_order('EB-1003')
+
+        self.assertTrue(created)
+        order = models.Order.objects.get(order_number='EB-1003', marketplace='easybill')
+        item = order.items.get()
+        self.assertEqual(item.article.sku, 'SKU-NEW-001')
+        self.assertEqual(item.article.name, 'Neuer Artikel')
+
+    @mock.patch.dict('os.environ', {'EASYBILL_API_KEY': 'test-key'}, clear=True)
+    def test_import_order_uses_shipping_name_for_customer_name(self):
+        payload = {
+            'order_number': 'EB-1004',
+            'status': 'paid',
+            'customer': {'email': 'kunde@example.com'},
+            'shipping_address': {
+                'first_name': 'Lisa',
+                'last_name': 'Muster',
+            },
+            'items': [
+                {'item_number': 'ST-001', 'quantity': 1, 'unit_price_net': '3.50'}
+            ],
+        }
+
+        importer = EasybillOrderImporter()
+        with mock.patch.object(importer.client, 'get_document', return_value=payload):
+            importer.import_order('EB-1004')
+
+        order = models.Order.objects.get(order_number='EB-1004', marketplace='easybill')
+        self.assertEqual(order.customer_name, 'Lisa Muster')
+
+    @mock.patch.dict('os.environ', {'EASYBILL_API_KEY': 'test-key'}, clear=True)
     def test_import_latest_orders_fetches_document_details_before_syncing(self):
         importer = EasybillOrderImporter()
         with mock.patch.object(importer.client, 'list_documents', return_value=[{'id': '1001'}]), mock.patch.object(
@@ -150,3 +198,18 @@ class EasybillOrderImporterTestCase(TestCase):
 
         self.assertEqual((created, updated), (1, 0))
         mocked_get_document.assert_called_once_with('1001')
+
+    @mock.patch.dict('os.environ', {'EASYBILL_API_KEY': 'test-key'}, clear=True)
+    def test_import_latest_orders_accepts_custom_start_date(self):
+        importer = EasybillOrderImporter()
+        with mock.patch.object(importer.client, 'list_documents', return_value=[]), mock.patch.object(
+            importer.client,
+            'get_document',
+        ):
+            importer.import_latest_orders(updated_at_from='2026-03-01')
+
+        importer.client.list_documents.assert_called_once_with(
+            page=1,
+            limit=50,
+            updated_at_from='2026-03-01',
+        )
