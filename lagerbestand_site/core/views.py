@@ -867,25 +867,28 @@ class BackupImportView(OptionalLoginRequiredMixin, FormView):
                                 qty = int(row.get('quantity', 0))
                             except ValueError:
                                 qty = 0
+                            movement_order = None
+                            try:
+                                oid = int(row.get('order_id', 0))
+                            except ValueError:
+                                oid = 0
+                            if oid:
+                                movement_order = order_map.get(oid) or models.Order.objects.filter(pk=oid).first()
                             movement = models.Movement.objects.create(
                                 article=article,
                                 quantity=qty,
                                 movement_type=row.get('type', 'Warenausgang'),
                                 note=row.get('note', ''),
                                 invoice_number=row.get('invoice_number', ''),
+                                order=movement_order,
                             )
-                            try:
-                                oid = int(row.get('order_id', 0))
-                                movement.order_id = oid if oid else None
-                                timestamp = row.get('timestamp')
-                                if timestamp:
-                                    try:
-                                        movement.created_at = datetime.fromisoformat(timestamp)
-                                    except ValueError:
-                                        pass
-                                movement.save(update_fields=['order', 'created_at'])
-                            except ValueError:
-                                pass
+                            timestamp = row.get('timestamp')
+                            if timestamp:
+                                try:
+                                    movement.created_at = datetime.fromisoformat(timestamp)
+                                    movement.save(update_fields=['created_at'])
+                                except ValueError:
+                                    pass
                     except KeyError:
                         pass
                 except KeyError:

@@ -59,6 +59,12 @@ class BackupImportViewTestCase(TestCase):
             writer.writerow([100, "ST-001", 3, "3.50"])
             archive.writestr("order_items.csv", items_output.getvalue())
 
+            movements_output = io.StringIO()
+            writer = csv.writer(movements_output)
+            writer.writerow(["article_sku", "quantity", "type", "note", "timestamp", "invoice_number", "order_id"])
+            writer.writerow(["ST-001", -3, "Warenausgang", "Bestellung", "", "INV-1", 99999])
+            archive.writestr("movements.csv", movements_output.getvalue())
+
         zip_buffer.seek(0)
         return zip_buffer.getvalue()
 
@@ -88,3 +94,5 @@ class BackupImportViewTestCase(TestCase):
         item = models.OrderItem.objects.get(order_id=100)
         self.assertEqual(item.quantity, 3)
         self.assertEqual(item.unit_price, Decimal("3.50"))
+        movement = models.Movement.objects.get(invoice_number="INV-1")
+        self.assertIsNone(movement.order)
