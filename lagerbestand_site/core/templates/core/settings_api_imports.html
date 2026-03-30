@@ -110,13 +110,27 @@
                         <input type="hidden" name="action" value="test_easybill">
                         <button class="btn btn-outline-secondary px-4">Verbindung testen</button>
                     </form>
-                    <form method="post">
-                        {% csrf_token %}
-                        <input type="hidden" name="action" value="run_easybill_latest_orders">
-                        <button class="btn btn-primary px-4">Neueste Bestellungen importieren</button>
-                    </form>
                 </div>
             </div>
+            <form method="post" class="mt-4">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="run_easybill_latest_orders">
+                <div class="row g-3 align-items-end">
+                    <div class="col-md-4">
+                        {{ easybill_import_form.start_date.label_tag }}
+                        {{ easybill_import_form.start_date }}
+                    </div>
+                    <div class="col-md-8 d-flex align-items-end">
+                        <button class="btn btn-primary px-4">Bestellungen importieren</button>
+                    </div>
+                </div>
+                {% if easybill_import_form.non_field_errors %}
+                    <div class="alert alert-danger mt-3 mb-0">
+                        {{ easybill_import_form.non_field_errors|join:' ' }}
+                    </div>
+                {% endif %}
+                <div class="form-text mt-2">Optional: Datum wählen, um nur Bestellungen ab diesem Tag zu importieren.</div>
+            </form>
             <div class="form-text mt-3">Für den Import wird die Umgebungsvariable <code>EASYBILL_API_KEY</code> benötigt.</div>
             {% if easybill_missing_env_vars %}
                 <div class="alert alert-warning mt-3 mb-0">

@@ -553,6 +553,7 @@ class ApiImportView(OptionalLoginRequiredMixin, View):
             'marketplaces': marketplaces,
             'amazon_missing_env_vars': self._amazon_missing_env_vars(),
             'api_import_form': forms.ApiImportRangeForm(),
+            'easybill_import_form': forms.EasybillImportForm(),
             'easybill_missing_env_vars': self._easybill_missing_env_vars(),
             'debug_stats': self._debug_stats(),
         })
@@ -597,6 +598,7 @@ class ApiImportView(OptionalLoginRequiredMixin, View):
                         'marketplaces': marketplaces,
                         'amazon_missing_env_vars': self._amazon_missing_env_vars(),
                         'api_import_form': import_form,
+                        'easybill_import_form': forms.EasybillImportForm(),
                         'easybill_missing_env_vars': self._easybill_missing_env_vars(),
                         'debug_stats': self._debug_stats(),
                     })
@@ -637,8 +639,20 @@ class ApiImportView(OptionalLoginRequiredMixin, View):
             return redirect('settings_api_imports')
         if action == 'run_easybill_latest_orders':
             try:
+                easybill_form = forms.EasybillImportForm(request.POST)
+                if not easybill_form.is_valid():
+                    marketplaces = AmazonMarketplace.objects.all()
+                    return render(request, self.template_name, {
+                        'marketplaces': marketplaces,
+                        'amazon_missing_env_vars': self._amazon_missing_env_vars(),
+                        'api_import_form': forms.ApiImportRangeForm(),
+                        'easybill_import_form': easybill_form,
+                        'easybill_missing_env_vars': self._easybill_missing_env_vars(),
+                        'debug_stats': self._debug_stats(),
+                    })
                 importer = EasybillOrderImporter()
-                created, updated = importer.import_latest_orders()
+                start_date = easybill_form.cleaned_data.get('start_date')
+                created, updated = importer.import_latest_orders(updated_at_from=start_date)
                 messages.success(request, f'Easybill Bestellungen importiert. Neu: {created}, aktualisiert: {updated}.')
                 log_activity(request, 'Easybill Bestellungen importiert')
             except EasybillApiError as exc:

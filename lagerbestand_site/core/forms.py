@@ -163,6 +163,14 @@ class ApiImportRangeForm(StyledFormMixin, forms.Form):
         return cleaned
 
 
+class EasybillImportForm(StyledFormMixin, forms.Form):
+    start_date = forms.DateField(
+        label='Bestellungen ab',
+        required=False,
+        widget=forms.DateInput(attrs={'type': 'date'}),
+    )
+
+
 OrderItemFormSet = inlineformset_factory(
     models.Order,
     models.OrderItem,

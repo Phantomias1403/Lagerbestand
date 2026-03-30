@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import os
 import time
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
@@ -189,8 +189,15 @@ class EasybillOrderImporter:
         days: int = 14,
         limit_per_page: int = 50,
         max_pages: int = 10,
+        updated_at_from: date | str | None = None,
     ) -> tuple[int, int]:
-        updated_at_from = (timezone.now() - timedelta(days=days)).date().isoformat()
+        if updated_at_from:
+            if isinstance(updated_at_from, date):
+                updated_at_from_value = updated_at_from.isoformat()
+            else:
+                updated_at_from_value = str(updated_at_from).strip()
+        else:
+            updated_at_from_value = (timezone.now() - timedelta(days=days)).date().isoformat()
 
         created = 0
         updated = 0
@@ -200,7 +207,7 @@ class EasybillOrderImporter:
             document_summaries = self.client.list_documents(
                 page=page,
                 limit=limit_per_page,
-                updated_at_from=updated_at_from,
+                updated_at_from=updated_at_from_value,
             )
             if not document_summaries:
                 break
@@ -309,6 +316,11 @@ class EasybillOrderImporter:
                 article = models.Article.objects.filter(sku=sku).first()
             if not article and product_name:
                 article = models.Article.objects.filter(name__iexact=product_name).first()
+            if not article:
+                article = self._get_or_create_article_for_item(
+                    sku=sku,
+                    product_name=product_name,
+                )
 
             unit_price = self._parse_decimal(
                 item.get("price")
@@ -349,6 +361,39 @@ class EasybillOrderImporter:
                 create_kwargs["line_total"] = unit_price * quantity
 
             models.OrderItem.objects.create(**create_kwargs)
+
+    def _get_or_create_article_for_item(self, *, sku: str, product_name: str) -> models.Article | None:
+        derived_sku = sku or self._fallback_sku(product_name)
+        if not derived_sku:
+            return None
+
+        article_defaults = {
+            "name": product_name or derived_sku,
+            "stock": 0,
+            "minimum_stock": 0,
+            "price": Decimal("0"),
+        }
+        article, _ = models.Article.objects.get_or_create(
+            sku=derived_sku,
+            defaults=article_defaults,
+        )
+
+        if product_name and article.name != product_name:
+            article.name = product_name
+            article.save(update_fields=["name"])
+
+        return article
+
+    def _fallback_sku(self, product_name: str) -> str:
+        cleaned_name = (product_name or "").strip()
+        if not cleaned_name:
+            return ""
+
+        candidate = "-".join(cleaned_name.split()).upper()
+        candidate = "".join(char for char in candidate if char.isalnum() or char == "-")
+        if not candidate:
+            return ""
+        return f"EB-{candidate[:40]}"
 
     def _document_id_from_payload(self, payload: dict[str, Any]) -> str:
         for key in ("id", "document_id"):
@@ -393,6 +438,11 @@ class EasybillOrderImporter:
             if email:
                 return email
 
+        for address in (self._shipping_address(payload), self._billing_address(payload)):
+            full_name = self._name_from_address(address)
+            if full_name:
+                return full_name
+
         shipping_address = self._shipping_address(payload)
         if isinstance(shipping_address, dict):
             shipping_name = str(shipping_address.get("name") or "").strip()
@@ -413,6 +463,30 @@ class EasybillOrderImporter:
                 return nested_shipping
 
         return {}
+
+    def _billing_address(self, payload: dict[str, Any]) -> dict[str, Any]:
+        billing = payload.get("billing_address")
+        if isinstance(billing, dict):
+            return billing
+
+        customer = payload.get("customer") or {}
+        if isinstance(customer, dict):
+            nested_billing = customer.get("billing_address")
+            if isinstance(nested_billing, dict):
+                return nested_billing
+
+        return {}
+
+    def _name_from_address(self, address: dict[str, Any]) -> str:
+        if not isinstance(address, dict):
+            return ""
+        direct_name = str(address.get("name") or "").strip()
+        if direct_name:
+            return direct_name
+
+        first = str(address.get("first_name") or address.get("firstname") or "").strip()
+        last = str(address.get("last_name") or address.get("lastname") or "").strip()
+        return f"{first} {last}".strip()
 
     def _order_sort_key(self, payload: dict[str, Any]) -> datetime:
         return self._parse_datetime(
