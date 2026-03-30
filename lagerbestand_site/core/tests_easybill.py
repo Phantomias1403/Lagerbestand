@@ -158,6 +158,7 @@ class EasybillOrderImporterTestCase(TestCase):
         item = order.items.get()
         self.assertEqual(item.article.sku, 'SKU-NEW-001')
         self.assertEqual(item.article.name, 'Neuer Artikel')
+        self.assertEqual(item.article.category.name, 'Sticker')
 
     @mock.patch.dict('os.environ', {'EASYBILL_API_KEY': 'test-key'}, clear=True)
     def test_import_order_uses_shipping_name_for_customer_name(self):
