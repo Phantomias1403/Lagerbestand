@@ -82,7 +82,7 @@
                 <td>{{ order.external_order_date|default:order.created_at|date:"d.m.Y" }}</td>
                 <td>
                     {% for item in order.items.all %}
-                        {{ item.article.name }} ({{ item.quantity }}x){% if not forloop.last %}, {% endif %}
+                        {{ item.article.sku }} ({{ item.quantity }}x){% if not forloop.last %}, {% endif %}
                     {% empty %}
                         -
                     {% endfor %}

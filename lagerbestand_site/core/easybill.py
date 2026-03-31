@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import os
 import time
 from datetime import UTC, date, datetime, timedelta
@@ -12,6 +13,8 @@ from django.db.utils import IntegrityError
 from django.utils import timezone
 
 from . import models, utils
+
+logger = logging.getLogger(__name__)
 
 
 class EasybillApiError(Exception):
@@ -249,6 +252,7 @@ class EasybillOrderImporter:
         order_number = self._order_number_from_payload(payload)
         if not order_number:
             raise EasybillApiError("Dokument enthält keine verwertbare Nummer.")
+        order_total = self._order_total(payload)
 
         defaults = {
             "customer_name": self._customer_name(payload),
@@ -258,7 +262,7 @@ class EasybillOrderImporter:
             "order_quantity": 0,
             "created_at": self._order_sort_key(payload),
             "external_order_date": self._order_date(payload),
-            "external_total_price": self._order_total(payload)/100,
+            "external_total_price": order_total,
         }
 
         with transaction.atomic():
@@ -292,12 +296,7 @@ class EasybillOrderImporter:
             if not isinstance(item, dict):
                 continue
 
-            sku = str(
-                item.get("number")
-                or item.get("item_number")
-                or item.get("sku")
-                or ""
-            ).strip()
+            sku = str(item.get("number") or item.get("item_number") or "").strip()
 
             product_name = str(
                 item.get("title")
@@ -312,11 +311,15 @@ class EasybillOrderImporter:
             if quantity <= 0:
                 continue
 
-            article = None
-            if sku:
-                article = models.Article.objects.filter(sku=sku).first()
-            if not article and product_name:
-                article = models.Article.objects.filter(name__iexact=product_name).first()
+            if not sku:
+                logger.warning(
+                    "Easybill Position ohne SKU übersprungen (order_number=%s, description=%s).",
+                    order.order_number,
+                    product_name,
+                )
+                continue
+
+            article = models.Article.objects.filter(sku=sku).first()
             if not article:
                 article = self._get_or_create_article_for_item(
                     sku=sku,
@@ -364,7 +367,7 @@ class EasybillOrderImporter:
             models.OrderItem.objects.create(**create_kwargs)
 
     def _get_or_create_article_for_item(self, *, sku: str, product_name: str) -> models.Article | None:
-        derived_sku = sku or self._fallback_sku(product_name)
+        derived_sku = (sku or "").strip()
         if not derived_sku:
             return None
 
@@ -405,17 +408,6 @@ class EasybillOrderImporter:
             raise EasybillApiError(
                 "Kategorie 'Sticker' konnte für den Easybill-Import nicht erstellt werden."
             )
-
-    def _fallback_sku(self, product_name: str) -> str:
-        cleaned_name = (product_name or "").strip()
-        if not cleaned_name:
-            return ""
-
-        candidate = "-".join(cleaned_name.split()).upper()
-        candidate = "".join(char for char in candidate if char.isalnum() or char == "-")
-        if not candidate:
-            return ""
-        return f"EB-{candidate[:40]}"
 
     def _document_id_from_payload(self, payload: dict[str, Any]) -> str:
         for key in ("id", "document_id"):

@@ -78,7 +78,7 @@ class EasybillOrderImporterTestCase(TestCase):
             },
             'items': [
                 {
-                    'item_number': 'ST-001',
+                    'number': 'ST-001',
                     'title': 'Fan Sticker',
                     'quantity': 3,
                     'unit_price_net': '3.50',
@@ -106,7 +106,7 @@ class EasybillOrderImporterTestCase(TestCase):
 
 
     @mock.patch.dict('os.environ', {'EASYBILL_API_KEY': 'test-key'}, clear=True)
-    def test_import_order_matches_product_by_name_when_sku_missing(self):
+    def test_import_order_skips_item_when_sku_missing(self):
         payload = {
             'order_number': 'EB-1002',
             'status': 'paid',
@@ -114,11 +114,7 @@ class EasybillOrderImporterTestCase(TestCase):
             'total_price': '3.50',
             'customer': {'name': 'Erika Musterfrau'},
             'items': [
-                {
-                    'title': 'Fan Sticker',
-                    'quantity': 1,
-                    'unit_price_net': '3.50',
-                }
+                {'title': 'Fan Sticker', 'quantity': 1, 'unit_price_net': '3.50'}
             ],
         }
 
@@ -128,10 +124,13 @@ class EasybillOrderImporterTestCase(TestCase):
 
         self.assertTrue(created)
         order = models.Order.objects.get(order_number='EB-1002', marketplace='easybill')
-        item = order.items.get()
-
-        self.assertEqual(item.article, self.article)
+        self.assertEqual(order.items.count(), 0)
+        self.assertEqual(order.order_quantity, 0)
         self.assertEqual(order.external_total_price, Decimal('3.50'))
+        self.assertEqual(
+            models.Movement.objects.filter(order=order).count(),
+            0,
+        )
 
     @mock.patch.dict('os.environ', {'EASYBILL_API_KEY': 'test-key'}, clear=True)
     def test_import_order_creates_article_when_missing_and_uses_imported_sku(self):
@@ -141,7 +140,7 @@ class EasybillOrderImporterTestCase(TestCase):
             'customer': {'name': 'SKU Test'},
             'items': [
                 {
-                    'item_number': 'SKU-NEW-001',
+                    'number': 'SKU-NEW-001',
                     'title': 'Neuer Artikel',
                     'quantity': 2,
                     'unit_price_net': '4.00',
@@ -171,7 +170,7 @@ class EasybillOrderImporterTestCase(TestCase):
                 'last_name': 'Muster',
             },
             'items': [
-                {'item_number': 'ST-001', 'quantity': 1, 'unit_price_net': '3.50'}
+                {'number': 'ST-001', 'quantity': 1, 'unit_price_net': '3.50'}
             ],
         }
 
@@ -192,7 +191,7 @@ class EasybillOrderImporterTestCase(TestCase):
                 'order_number': 'EB-1001',
                 'status': 'paid',
                 'customer': {'name': 'Max Mustermann'},
-                'items': [{'item_number': 'ST-001', 'quantity': 1, 'unit_price_net': '3.50'}],
+                'items': [{'number': 'ST-001', 'quantity': 1, 'unit_price_net': '3.50'}],
             },
         ) as mocked_get_document:
             created, updated = importer.import_latest_orders()
@@ -203,13 +202,13 @@ class EasybillOrderImporterTestCase(TestCase):
     @mock.patch.dict('os.environ', {'EASYBILL_API_KEY': 'test-key'}, clear=True)
     def test_import_latest_orders_accepts_custom_start_date(self):
         importer = EasybillOrderImporter()
-        with mock.patch.object(importer.client, 'list_documents', return_value=[]), mock.patch.object(
+        with mock.patch.object(importer.client, 'list_documents', return_value=[]) as mocked_list_documents, mock.patch.object(
             importer.client,
             'get_document',
         ):
             importer.import_latest_orders(updated_at_from='2026-03-01')
 
-        importer.client.list_documents.assert_called_once_with(
+        mocked_list_documents.assert_called_once_with(
             page=1,
             limit=50,
             updated_at_from='2026-03-01',
