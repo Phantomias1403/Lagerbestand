@@ -120,3 +120,41 @@ class BackupImportViewTestCase(TestCase):
 
         item = models.OrderItem.objects.get(order_id=100)
         self.assertEqual(item.article_id, article.id)
+
+    def test_backup_import_reuses_existing_blank_prefix_category(self):
+        models.Category.objects.create(name="Sonstiges", prefix="")
+        zip_buffer = io.BytesIO()
+        with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as archive:
+            articles_output = io.StringIO()
+            writer = csv.writer(articles_output)
+            writer.writerow(
+                [
+                    "name",
+                    "sku",
+                    "category",
+                    "stock",
+                    "minimum_stock",
+                    "location_primary",
+                    "location_secondary",
+                    "price",
+                ]
+            )
+            writer.writerow(["Patch", "ZZ-001", "Neue Kategorie", "5", "1", "", "", "1.00"])
+            archive.writestr("articles.csv", articles_output.getvalue())
+        zip_buffer.seek(0)
+
+        upload = SimpleUploadedFile("backup.zip", zip_buffer.getvalue(), content_type="application/zip")
+        response = self.client.post(
+            reverse("settings_backup"),
+            {
+                "file": upload,
+                "include_articles": "on",
+                "include_orders": "",
+                "include_settings": "",
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        article = models.Article.objects.get(sku="ZZ-001")
+        self.assertEqual(article.category.name, "Sonstiges")
+        self.assertEqual(models.Category.objects.filter(name="Neue Kategorie").count(), 0)
