@@ -841,7 +841,7 @@ class BackupImportView(OptionalLoginRequiredMixin, FormView):
                                 price = float(row.get('unit_price', 0))
                             except ValueError:
                                 continue
-                            article = models.Article.objects.filter(sku=row.get('article_sku', '')).first()
+                            article = models.Article.objects.filter(sku__iexact=(row.get('article_sku', '') or '').strip()).first()
                             order = order_map.get(oid)
                             if not article or not order:
                                 continue
@@ -860,7 +860,7 @@ class BackupImportView(OptionalLoginRequiredMixin, FormView):
                         movement_text = archive.read('movements.csv').decode('utf-8')
                         models.Movement.objects.all().delete()
                         for row in csv.DictReader(io.StringIO(movement_text)):
-                            article = models.Article.objects.filter(sku=row.get('article_sku', '')).first()
+                            article = models.Article.objects.filter(sku__iexact=(row.get('article_sku', '') or '').strip()).first()
                             if not article:
                                 continue
                             try:

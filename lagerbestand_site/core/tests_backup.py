@@ -88,3 +88,35 @@ class BackupImportViewTestCase(TestCase):
         item = models.OrderItem.objects.get(order_id=100)
         self.assertEqual(item.quantity, 3)
         self.assertEqual(item.unit_price, Decimal("3.50"))
+
+
+    def test_backup_import_updates_existing_article_case_insensitive_sku(self):
+        models.Article.objects.create(
+            name="Existing Sticker",
+            sku="st-001",
+            category=self.category,
+            stock=1,
+            minimum_stock=1,
+            price=Decimal("1.00"),
+        )
+
+        payload = self._build_backup_zip()
+        upload = SimpleUploadedFile("backup.zip", payload, content_type="application/zip")
+
+        response = self.client.post(
+            reverse("settings_backup"),
+            {
+                "file": upload,
+                "include_articles": "on",
+                "include_orders": "on",
+                "include_settings": "on",
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(models.Article.objects.filter(sku__iexact="ST-001").count(), 1)
+        article = models.Article.objects.get(sku="ST-001")
+        self.assertEqual(article.stock, 20)
+
+        item = models.OrderItem.objects.get(order_id=100)
+        self.assertEqual(item.article_id, article.id)
