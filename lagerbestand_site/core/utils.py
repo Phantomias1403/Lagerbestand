@@ -311,15 +311,18 @@ def import_articles(rows: Iterable[dict[str, str]]) -> tuple[int, int]:
                 if category.prefix:
                     prefix_cache[category.prefix] = category
 
-        article, was_created = models.Article.objects.get_or_create(
-            sku=sku,
-            defaults={'name': name or sku, 'category': category},
-        )
-        if was_created:
+        article = models.Article.objects.filter(sku__iexact=sku).first()
+        if article is None:
+            article = models.Article.objects.create(
+                sku=sku,
+                name=name or sku,
+                category=category,
+            )
             created += 1
         else:
+            if article.sku != sku:
+                article.sku = sku
             updated += 1
-
         article.name = name or article.name
         article.category = category
         try:
