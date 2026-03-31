@@ -4,7 +4,7 @@ from typing import Iterable
 
 from django.conf import settings
 from django.core.mail import EmailMessage
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.db.models import F
 from django.urls import reverse
 from django.contrib.auth.tokens import PasswordResetTokenGenerator
@@ -276,8 +276,41 @@ def import_articles(rows: Iterable[dict[str, str]]) -> tuple[int, int]:
     prefix_cache: dict[str, models.Category] = {
         c.prefix: c for c in categories if c.prefix
     }
+    blank_prefix_category = next((c for c in categories if not (c.prefix or '').strip()), None)
     created = 0
     updated = 0
+
+    def resolve_category(category_name: str, sku: str) -> models.Category:
+        nonlocal blank_prefix_category
+
+        existing_by_name = category_cache.get(category_name)
+        if existing_by_name:
+            return existing_by_name
+
+        for prefix, cached_category in prefix_cache.items():
+            if sku.startswith(prefix):
+                category_cache[category_name] = cached_category
+                return cached_category
+
+        if blank_prefix_category:
+            category_cache[category_name] = blank_prefix_category
+            return blank_prefix_category
+
+        try:
+            category = models.Category.objects.create(name=category_name)
+        except IntegrityError:
+            category = models.Category.objects.filter(name=category_name).first()
+            if not category:
+                category = blank_prefix_category or models.Category.objects.order_by('id').first()
+            if not category:
+                raise
+
+        category_cache[category_name] = category
+        if category.prefix:
+            prefix_cache[category.prefix] = category
+        elif blank_prefix_category is None:
+            blank_prefix_category = category
+        return category
 
     for raw_row in rows:
         row = normalise_import_row(raw_row)
@@ -289,12 +322,7 @@ def import_articles(rows: Iterable[dict[str, str]]) -> tuple[int, int]:
 
         category = None
         if category_name:
-            category = category_cache.get(category_name)
-            if not category:
-                category, _ = models.Category.objects.get_or_create(name=category_name)
-                category_cache[category_name] = category
-                if category.prefix:
-                    prefix_cache[category.prefix] = category
+            category = resolve_category(category_name, sku)
 
         if category is None:
             for prefix, cached_category in prefix_cache.items():
@@ -304,12 +332,7 @@ def import_articles(rows: Iterable[dict[str, str]]) -> tuple[int, int]:
 
         if category is None:
             default_name = 'Sticker'
-            category = category_cache.get(default_name)
-            if not category:
-                category, _ = models.Category.objects.get_or_create(name=default_name)
-                category_cache[default_name] = category
-                if category.prefix:
-                    prefix_cache[category.prefix] = category
+            category = resolve_category(default_name, sku)
 
         article = models.Article.objects.filter(sku__iexact=sku).first()
         if article is None:
