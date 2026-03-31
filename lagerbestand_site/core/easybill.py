@@ -258,7 +258,7 @@ class EasybillOrderImporter:
             "order_quantity": 0,
             "created_at": self._order_sort_key(payload),
             "external_order_date": self._order_date(payload),
-            "external_total_price": self._order_total(payload),
+            "external_total_price": self._order_total(payload)/100,
         }
 
         with transaction.atomic():
