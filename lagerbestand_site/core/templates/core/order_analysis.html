@@ -40,7 +40,7 @@
         <div class="card border-0 shadow-sm h-100">
             <div class="card-body">
                 <p class="text-muted mb-1">Gesamter Verdienst</p>
-                <h2 class="h4 mb-0">{{ total_revenue|floatformat:2 }} €</h2>
+                <h2 class="h4 mb-0">{{ total_revenue_eur|floatformat:2 }} €</h2>
             </div>
         </div>
     </div>
@@ -52,7 +52,7 @@
                     {% for entry in marketplace_totals %}
                         <li class="d-flex justify-content-between">
                             <span>{{ entry.label }}</span>
-                            <span>{{ entry.total|floatformat:2 }} €</span>
+                            <span>{{ entry.total_eur|floatformat:2 }} €</span>
                         </li>
                     {% endfor %}
                 </ul>
@@ -87,7 +87,7 @@
                         -
                     {% endfor %}
                 </td>
-                <td>{{ order.analysis_total|floatformat:2 }} €</td>
+                <td>{{ order.analysis_total_eur|floatformat:2 }} €</td>
             </tr>
             {% empty %}
             <tr><td colspan="6" class="text-center">Keine Bestellungen für die Auswahl vorhanden.</td></tr>
