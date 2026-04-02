@@ -328,7 +328,23 @@ class OrderListView(OptionalLoginRequiredMixin, ListView):
     context_object_name = 'orders'
 
     def get_queryset(self):
-        return models.Order.objects.select_related('user').prefetch_related('items__article').all()
+        order_total_expression = ExpressionWrapper(
+            F('items__quantity') * F('items__unit_price'),
+            output_field=DecimalField(max_digits=12, decimal_places=2),
+        )
+        return (
+            models.Order.objects.select_related('user')
+            .prefetch_related('items__article')
+            .annotate(
+                total_price_cents=Coalesce(Sum(order_total_expression), Decimal("0")),
+            )
+            .annotate(
+                total_price_eur=ExpressionWrapper(
+                    F('total_price_cents') / Decimal("100"),
+                    output_field=DecimalField(max_digits=12, decimal_places=2),
+                ),
+            )
+        )
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)

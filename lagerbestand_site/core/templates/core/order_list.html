@@ -59,7 +59,7 @@
                 <td>{{ order.get_status_display }}</td>
                 <td>{{ order.get_marketplace_display }}</td>
                 <td>{{ order.created_at|date:"d.m.Y" }}</td>
-                <td>{{ order.total_price|floatformat:2 }} €</td>
+                <td>{{ order.total_price_eur|floatformat:2 }} €</td>
                 <td>
                     <a class="btn btn-sm btn-outline-primary" href="{% url 'order_detail' order.pk %}">Details</a>
                     <a class="btn btn-sm btn-outline-secondary" href="{% url 'order_edit' order.pk %}">Bearbeiten</a>
