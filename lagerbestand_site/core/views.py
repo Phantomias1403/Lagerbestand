@@ -385,6 +385,12 @@ class OrderAnalysisView(OptionalLoginRequiredMixin, TemplateView):
                 output_field=DecimalField(max_digits=12, decimal_places=2),
             ),
         )
+        orders = orders.annotate(
+        analysis_total_eur=ExpressionWrapper(
+            F('analysis_total') / Decimal("100"),
+            output_field=DecimalField(max_digits=12, decimal_places=2),
+        )
+    )
         item_queryset = models.OrderItem.objects.filter(order__in=orders.values_list('pk', flat=True))
         total_revenue = item_queryset.aggregate(total=Sum(revenue_expression))['total'] or Decimal("0")
         marketplace_rows = (
@@ -406,8 +412,15 @@ class OrderAnalysisView(OptionalLoginRequiredMixin, TemplateView):
             'form': form,
             'orders': orders,
             'total_revenue': total_revenue,
+            'total_revenue_eur': total_revenue / 100,
             'total_orders': orders.count(),
-            'marketplace_totals': marketplace_totals,
+            'marketplace_totals': [
+                {
+                    **entry,
+                    'total_eur': entry['total'] / 100
+                }
+                for entry in marketplace_totals
+            ],
         })
         return context
 
