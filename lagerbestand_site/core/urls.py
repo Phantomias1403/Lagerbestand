@@ -30,6 +30,7 @@ urlpatterns = [
     path('settings/endings/', views.EndingSettingsView.as_view(), name='settings_endings'),
     path('settings/endings/<int:pk>/', views.EndingSettingsView.as_view(), name='settings_endings_edit'),
     path('settings/api-imports/', views.ApiImportView.as_view(), name='settings_api_imports'),
+    path('settings/api-imports/easybill-live/', views.EasybillLiveImportView.as_view(), name='settings_api_imports_easybill_live'),
     path('settings/backup/', views.BackupImportView.as_view(), name='settings_backup'),
     path('settings/backup/export/', views.BackupExportView.as_view(), name='settings_backup_export'),
 

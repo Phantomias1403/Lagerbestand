@@ -242,3 +242,31 @@ class EasybillOrderImporterTestCase(TestCase):
         self.assertEqual((created, updated), (1, 0))
         self.assertFalse(models.Order.objects.filter(order_number='EB-OLD', marketplace='easybill').exists())
         self.assertTrue(models.Order.objects.filter(order_number='EB-NEW', marketplace='easybill').exists())
+
+    @mock.patch.dict('os.environ', {'EASYBILL_API_KEY': 'test-key'}, clear=True)
+    def test_import_latest_orders_reports_progress_for_each_imported_order(self):
+        importer = EasybillOrderImporter()
+        progress_updates: list[int] = []
+
+        with mock.patch.object(importer.client, 'list_documents', return_value=[{'id': '1001'}, {'id': '1002'}]), mock.patch.object(
+            importer.client,
+            'get_document',
+            side_effect=[
+                {
+                    'order_number': 'EB-1001',
+                    'status': 'paid',
+                    'customer': {'name': 'Erster'},
+                    'items': [{'number': 'ST-001', 'quantity': 1, 'unit_price_net': '3.50'}],
+                },
+                {
+                    'order_number': 'EB-1002',
+                    'status': 'paid',
+                    'customer': {'name': 'Zweiter'},
+                    'items': [{'number': 'ST-001', 'quantity': 1, 'unit_price_net': '3.50'}],
+                },
+            ],
+        ):
+            created, updated = importer.import_latest_orders(progress_callback=progress_updates.append)
+
+        self.assertEqual((created, updated), (2, 0))
+        self.assertEqual(progress_updates, [1, 2])
