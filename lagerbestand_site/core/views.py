@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import csv
 import io
+import json
 import os
 from datetime import datetime
 from decimal import Decimal
@@ -10,7 +11,7 @@ from django import forms as django_forms
 from django.contrib import messages
 from django.contrib.auth import authenticate, login, logout, get_user_model
 from django.contrib.auth.decorators import login_required
-from django.http import HttpRequest, HttpResponse
+from django.http import HttpRequest, HttpResponse, StreamingHttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse, reverse_lazy
 from django.utils.decorators import method_decorator
@@ -745,6 +746,46 @@ class ApiImportView(OptionalLoginRequiredMixin, View):
             return redirect('settings_api_imports')
         messages.error(request, 'Unbekannte Aktion.')
         return redirect('settings_api_imports')
+
+
+class EasybillLiveImportView(OptionalLoginRequiredMixin, View):
+    def post(self, request: HttpRequest) -> HttpResponse:
+        form = forms.EasybillImportForm(request.POST)
+        if not form.is_valid():
+            payload = {"status": "error", "message": "Ungültige Eingaben."}
+            return HttpResponse(json.dumps(payload), content_type='application/json', status=400)
+
+        def stream():
+            importer = EasybillOrderImporter()
+            try:
+                yield self._event({"status": "started", "count": 0})
+                start_date = form.cleaned_data.get('start_date')
+                progress = {"count": 0}
+
+                def on_progress(imported_count: int) -> None:
+                    progress["count"] = imported_count
+
+                created, updated = importer.import_latest_orders(
+                    updated_at_from=start_date,
+                    progress_callback=on_progress,
+                )
+                yield self._event({"status": "progress", "count": progress["count"]})
+                yield self._event({
+                    "status": "done",
+                    "count": progress["count"],
+                    "created": created,
+                    "updated": updated,
+                })
+            except EasybillApiError as exc:
+                yield self._event({"status": "error", "message": str(exc)})
+
+        response = StreamingHttpResponse(stream(), content_type='text/event-stream')
+        response["Cache-Control"] = "no-cache"
+        response["X-Accel-Buffering"] = "no"
+        return response
+
+    def _event(self, payload: dict[str, object]) -> str:
+        return f"data: {json.dumps(payload)}\n\n"
 
 
 class BackupExportView(OptionalLoginRequiredMixin, View):

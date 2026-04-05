@@ -112,7 +112,7 @@
                     </form>
                 </div>
             </div>
-            <form method="post" class="mt-4">
+            <form method="post" class="mt-4" id="easybill-live-import-form" data-live-import-url="{% url 'settings_api_imports_easybill_live' %}">
                 {% csrf_token %}
                 <input type="hidden" name="action" value="run_easybill_latest_orders">
                 <div class="row g-3 align-items-end">
@@ -121,7 +121,7 @@
                         {{ easybill_import_form.start_date }}
                     </div>
                     <div class="col-md-8 d-flex align-items-end">
-                        <button class="btn btn-primary px-4">Bestellungen importieren</button>
+                        <button class="btn btn-primary px-4" id="easybill-live-import-submit">Bestellungen importieren</button>
                     </div>
                 </div>
                 {% if easybill_import_form.non_field_errors %}
@@ -129,6 +129,9 @@
                         {{ easybill_import_form.non_field_errors|join:' ' }}
                     </div>
                 {% endif %}
+                <div class="alert alert-info mt-3 mb-0 d-none" id="easybill-import-live-status" role="status" aria-live="polite">
+                    Bisher importiert: <strong id="easybill-import-live-count">0</strong>
+                </div>
                 <div class="form-text mt-2">Optional: Datum wählen, um nur Bestellungen ab diesem Tag zu importieren.</div>
             </form>
             <div class="form-text mt-3">Für den Import wird die Umgebungsvariable <code>EASYBILL_API_KEY</code> benötigt.</div>
@@ -215,4 +218,89 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+(() => {
+    const form = document.getElementById('easybill-live-import-form');
+    if (!form) return;
+
+    const statusBox = document.getElementById('easybill-import-live-status');
+    const statusCount = document.getElementById('easybill-import-live-count');
+    const submitButton = document.getElementById('easybill-live-import-submit');
+    const csrfToken = form.querySelector('input[name="csrfmiddlewaretoken"]')?.value;
+    const liveUrl = form.dataset.liveImportUrl;
+
+    const setCount = (count) => {
+        if (statusCount) statusCount.textContent = String(count);
+    };
+
+    form.addEventListener('submit', async (event) => {
+        if (!liveUrl || !csrfToken) return;
+
+        event.preventDefault();
+        submitButton?.setAttribute('disabled', 'disabled');
+        statusBox?.classList.remove('d-none', 'alert-success', 'alert-danger');
+        statusBox?.classList.add('alert-info');
+        setCount(0);
+
+        try {
+            const response = await fetch(liveUrl, {
+                method: 'POST',
+                body: new FormData(form),
+                headers: {
+                    'X-CSRFToken': csrfToken,
+                    'Accept': 'text/event-stream',
+                },
+            });
+
+            if (!response.ok || !response.body) {
+                throw new Error('Import konnte nicht gestartet werden.');
+            }
+
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = '';
+
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+
+                buffer += decoder.decode(value, { stream: true });
+                const chunks = buffer.split('\n\n');
+                buffer = chunks.pop() || '';
+
+                for (const chunk of chunks) {
+                    const line = chunk.split('\n').find((entry) => entry.startsWith('data: '));
+                    if (!line) continue;
+
+                    const payload = JSON.parse(line.slice(6));
+                    if (payload.status === 'progress' || payload.status === 'done' || payload.status === 'started') {
+                        setCount(payload.count || 0);
+                    }
+
+                    if (payload.status === 'done') {
+                        statusBox?.classList.remove('alert-info');
+                        statusBox?.classList.add('alert-success');
+                        statusBox.innerHTML = `Import abgeschlossen. Importiert: <strong>${payload.count}</strong> (neu: ${payload.created}, aktualisiert: ${payload.updated}).`;
+                    }
+
+                    if (payload.status === 'error') {
+                        statusBox?.classList.remove('alert-info');
+                        statusBox?.classList.add('alert-danger');
+                        statusBox.textContent = payload.message || 'Import fehlgeschlagen.';
+                    }
+                }
+            }
+        } catch (error) {
+            statusBox?.classList.remove('alert-info');
+            statusBox?.classList.add('alert-danger');
+            statusBox.textContent = error instanceof Error ? error.message : 'Import fehlgeschlagen.';
+        } finally {
+            submitButton?.removeAttribute('disabled');
+        }
+    });
+})();
+</script>
 {% endblock %}

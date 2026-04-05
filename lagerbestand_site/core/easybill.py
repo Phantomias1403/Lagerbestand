@@ -5,6 +5,7 @@ import os
 import time
 from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal, InvalidOperation
+from collections.abc import Callable
 from typing import Any
 
 import requests
@@ -194,6 +195,7 @@ class EasybillOrderImporter:
         limit_per_page: int = 50,
         max_pages: int = 10,
         updated_at_from: date | str | None = None,
+        progress_callback: Callable[[int], None] | None = None,
     ) -> tuple[int, int]:
         order_date_cutoff: date | None = None
         if updated_at_from:
@@ -208,6 +210,7 @@ class EasybillOrderImporter:
 
         created = 0
         updated = 0
+        imported_count = 0
         seen_ids: set[str] = set()
 
         for page in range(1, max_pages + 1):
@@ -237,6 +240,9 @@ class EasybillOrderImporter:
                     created += 1
                 else:
                     updated += 1
+                imported_count += 1
+                if progress_callback:
+                    progress_callback(imported_count)
 
             if len(document_summaries) < limit_per_page:
                 break
