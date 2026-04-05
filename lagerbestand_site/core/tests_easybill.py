@@ -213,3 +213,32 @@ class EasybillOrderImporterTestCase(TestCase):
             limit=50,
             updated_at_from='2026-03-01',
         )
+
+    @mock.patch.dict('os.environ', {'EASYBILL_API_KEY': 'test-key'}, clear=True)
+    def test_import_latest_orders_skips_documents_before_selected_order_date(self):
+        importer = EasybillOrderImporter()
+        with mock.patch.object(importer.client, 'list_documents', return_value=[{'id': '1001'}, {'id': '1002'}]), mock.patch.object(
+            importer.client,
+            'get_document',
+            side_effect=[
+                {
+                    'order_number': 'EB-OLD',
+                    'status': 'paid',
+                    'document_date': '2026-02-28T10:00:00Z',
+                    'customer': {'name': 'Alt'},
+                    'items': [{'number': 'ST-001', 'quantity': 1, 'unit_price_net': '3.50'}],
+                },
+                {
+                    'order_number': 'EB-NEW',
+                    'status': 'paid',
+                    'document_date': '2026-03-02T10:00:00Z',
+                    'customer': {'name': 'Neu'},
+                    'items': [{'number': 'ST-001', 'quantity': 1, 'unit_price_net': '3.50'}],
+                },
+            ],
+        ):
+            created, updated = importer.import_latest_orders(updated_at_from='2026-03-01')
+
+        self.assertEqual((created, updated), (1, 0))
+        self.assertFalse(models.Order.objects.filter(order_number='EB-OLD', marketplace='easybill').exists())
+        self.assertTrue(models.Order.objects.filter(order_number='EB-NEW', marketplace='easybill').exists())

@@ -195,11 +195,14 @@ class EasybillOrderImporter:
         max_pages: int = 10,
         updated_at_from: date | str | None = None,
     ) -> tuple[int, int]:
+        order_date_cutoff: date | None = None
         if updated_at_from:
             if isinstance(updated_at_from, date):
                 updated_at_from_value = updated_at_from.isoformat()
+                order_date_cutoff = updated_at_from
             else:
                 updated_at_from_value = str(updated_at_from).strip()
+                order_date_cutoff = self._parse_date(updated_at_from_value)
         else:
             updated_at_from_value = (timezone.now() - timedelta(days=days)).date().isoformat()
 
@@ -225,6 +228,8 @@ class EasybillOrderImporter:
 
                 payload = self.client.get_document(document_id)
                 if not self._looks_like_order(payload):
+                    continue
+                if order_date_cutoff and self._order_date(payload).date() < order_date_cutoff:
                     continue
 
                 was_created = self._sync_order(payload)
@@ -597,3 +602,13 @@ class EasybillOrderImporter:
             return dt_value
         except Exception:
             return timezone.now()
+
+    def _parse_date(self, value: Any) -> date | None:
+        if isinstance(value, date):
+            return value
+        if value is None:
+            return None
+        try:
+            return date.fromisoformat(str(value).strip())
+        except ValueError:
+            return None
