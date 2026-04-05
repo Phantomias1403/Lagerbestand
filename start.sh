@@ -13,13 +13,15 @@ echo "[Debug] SCRIPT_DIR=$SCRIPT_DIR"
 # 2) Script liegt in lagerbestand_site/
 if [ -f "$SCRIPT_DIR/requirements.txt" ] && [ -f "$SCRIPT_DIR/lagerbestand_site/manage.py" ]; then
   PROJECT_ROOT="$SCRIPT_DIR"
-elif [ -f "$SCRIPT_DIR/../requirements.txt" ] && [ -f "$SCRIPT_DIR/manage.py" ]; then
-  PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 elif [ -f "$SCRIPT_DIR/requirements.txt" ] && [ -f "$SCRIPT_DIR/manage.py" ]; then
   PROJECT_ROOT="$SCRIPT_DIR"
+elif [ -f "$SCRIPT_DIR/../requirements.txt" ] && [ -f "$SCRIPT_DIR/manage.py" ]; then
+  PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 else
   echo "[Fehler] Konnte Projektroot nicht automatisch bestimmen." >&2
-  echo "[Fehler] Erwartet wurden requirements.txt und manage.py." >&2
+  echo "[Fehler] Erwartet wurde eine der folgenden Strukturen:" >&2
+  echo "  - requirements.txt + lagerbestand_site/manage.py" >&2
+  echo "  - requirements.txt + manage.py" >&2
   exit 1
 fi
 
@@ -49,32 +51,41 @@ fi
 echo "[Debug] SYS_PY=$SYS_PY"
 
 # --- Virtuelle Umgebung vorbereiten ---
-VENV_DIR="${PROJECT_ROOT}/.venv"
+VENV_DIR="$PROJECT_ROOT/.venv"
 
-# Falls die venv kaputt ist (z. B. kein pyvenv.cfg), neu erstellen
+# Defekte venv entfernen
 if [ -d "$VENV_DIR" ] && [ ! -f "$VENV_DIR/pyvenv.cfg" ]; then
   echo "[Warnung] Bestehende virtuelle Umgebung ist defekt (pyvenv.cfg fehlt)."
   echo "[Info] Lösche defekte virtuelle Umgebung und erstelle sie neu ..."
   rm -rf "$VENV_DIR"
 fi
 
+# venv erstellen, falls nicht vorhanden
 if [ ! -d "$VENV_DIR" ]; then
   echo "[Info] Erstelle virtuelle Umgebung unter $VENV_DIR ..."
   "$SYS_PY" -m venv "$VENV_DIR"
 fi
 
 # --- Python in venv finden ---
-if [ -x "$VENV_DIR/bin/python" ]; then
+# Wichtig: unter Git Bash/Windows ist -x oft unzuverlässig -> daher -f verwenden
+if [ -f "$VENV_DIR/bin/python" ]; then
   PY="$VENV_DIR/bin/python"
-elif [ -x "$VENV_DIR/Scripts/python.exe" ]; then
+elif [ -f "$VENV_DIR/Scripts/python.exe" ]; then
   PY="$VENV_DIR/Scripts/python.exe"
 else
   echo "[Fehler] Kein Python in der virtuellen Umgebung gefunden." >&2
+  echo "[Debug] Inhalt von $VENV_DIR:" >&2
+  ls -la "$VENV_DIR" >&2 || true
   exit 1
 fi
 
 echo "[Debug] VENV_PY=$PY"
 "$PY" --version
+
+# --- pip prüfen ---
+echo "[Info] Prüfe pip in der virtuellen Umgebung ..."
+"$PY" -m ensurepip --upgrade || true
+"$PY" -m pip --version
 
 # --- requirements.txt prüfen ---
 if [ ! -f "$PROJECT_ROOT/requirements.txt" ]; then
@@ -89,7 +100,7 @@ echo "[Info] Installiere/aktualisiere Python-Abhängigkeiten ..."
 
 # --- Lokale Umgebungsvariablen setzen ---
 export DB_ENGINE="${DB_ENGINE:-django.db.backends.sqlite3}"
-export DB_NAME="${DB_NAME:-${PROJECT_ROOT}/db.sqlite3}"
+export DB_NAME="${DB_NAME:-$PROJECT_ROOT/db.sqlite3}"
 export DJANGO_SECRET_KEY="${DJANGO_SECRET_KEY:-dev-local-secret-key}"
 export DJANGO_ALLOWED_HOSTS="${DJANGO_ALLOWED_HOSTS:-localhost,127.0.0.1}"
 export DJANGO_DEBUG="${DJANGO_DEBUG:-1}"

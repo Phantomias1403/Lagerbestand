@@ -8,18 +8,14 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 echo "[Debug] SCRIPT_DIR=$SCRIPT_DIR"
 
 # --- Projektroot automatisch bestimmen ---
-# Unterstützt:
-# 1) Script liegt im Projektroot
-# 2) Script liegt in lagerbestand_site/
 if [ -f "$SCRIPT_DIR/requirements.txt" ] && [ -f "$SCRIPT_DIR/lagerbestand_site/manage.py" ]; then
+  PROJECT_ROOT="$SCRIPT_DIR"
+elif [ -f "$SCRIPT_DIR/requirements.txt" ] && [ -f "$SCRIPT_DIR/manage.py" ]; then
   PROJECT_ROOT="$SCRIPT_DIR"
 elif [ -f "$SCRIPT_DIR/../requirements.txt" ] && [ -f "$SCRIPT_DIR/manage.py" ]; then
   PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-elif [ -f "$SCRIPT_DIR/requirements.txt" ] && [ -f "$SCRIPT_DIR/manage.py" ]; then
-  PROJECT_ROOT="$SCRIPT_DIR"
 else
   echo "[Fehler] Konnte Projektroot nicht automatisch bestimmen." >&2
-  echo "[Fehler] Erwartet wurden requirements.txt und manage.py." >&2
   exit 1
 fi
 
@@ -38,47 +34,78 @@ fi
 echo "[Debug] MANAGE_PY=$MANAGE_PY"
 
 # --- System-Python finden ---
-if command -v python3 >/dev/null 2>&1; then
-  SYS_PY=python3
+# Auf Windows zuerst py probieren, dann python, dann python3
+if command -v py >/dev/null 2>&1; then
+  SYS_PY="py -3"
 elif command -v python >/dev/null 2>&1; then
-  SYS_PY=python
+  SYS_PY="python"
+elif command -v python3 >/dev/null 2>&1; then
+  SYS_PY="python3"
 else
-  echo "[Fehler] Weder 'python3' noch 'python' gefunden." >&2
+  echo "[Fehler] Weder 'py', 'python' noch 'python3' gefunden." >&2
   exit 1
 fi
 echo "[Debug] SYS_PY=$SYS_PY"
 
-# --- Virtuelle Umgebung vorbereiten ---
-VENV_DIR="${PROJECT_ROOT}/.venv"
+VENV_DIR="$PROJECT_ROOT/.venv"
 
-# Falls die venv kaputt ist (z. B. kein pyvenv.cfg), neu erstellen
-if [ -d "$VENV_DIR" ] && [ ! -f "$VENV_DIR/pyvenv.cfg" ]; then
-  echo "[Warnung] Bestehende virtuelle Umgebung ist defekt (pyvenv.cfg fehlt)."
-  echo "[Info] Lösche defekte virtuelle Umgebung und erstelle sie neu ..."
+# --- Funktion: Python in venv-Pfad ermitteln ---
+find_venv_python() {
+  if [ -f "$VENV_DIR/Scripts/python.exe" ]; then
+    echo "$VENV_DIR/Scripts/python.exe"
+    return 0
+  elif [ -f "$VENV_DIR/bin/python" ]; then
+    echo "$VENV_DIR/bin/python"
+    return 0
+  fi
+  return 1
+}
+
+# --- Funktion: venv neu erstellen ---
+recreate_venv() {
+  echo "[Info] Erstelle virtuelle Umgebung neu ..."
   rm -rf "$VENV_DIR"
+  eval "$SYS_PY -m venv \"$VENV_DIR\""
+}
+
+# --- venv auf Existenz prüfen ---
+if [ ! -d "$VENV_DIR" ]; then
+  echo "[Info] Keine .venv gefunden."
+  recreate_venv
 fi
 
-if [ ! -d "$VENV_DIR" ]; then
-  echo "[Info] Erstelle virtuelle Umgebung unter $VENV_DIR ..."
-  "$SYS_PY" -m venv "$VENV_DIR"
+# --- pyvenv.cfg prüfen ---
+if [ -d "$VENV_DIR" ] && [ ! -f "$VENV_DIR/pyvenv.cfg" ]; then
+  echo "[Warnung] pyvenv.cfg fehlt. venv ist defekt."
+  recreate_venv
 fi
 
 # --- Python in venv finden ---
-if [ -x "$VENV_DIR/bin/python" ]; then
-  PY="$VENV_DIR/bin/python"
-elif [ -x "$VENV_DIR/Scripts/python.exe" ]; then
-  PY="$VENV_DIR/Scripts/python.exe"
-else
-  echo "[Fehler] Kein Python in der virtuellen Umgebung gefunden." >&2
-  exit 1
+if ! PY="$(find_venv_python)"; then
+  echo "[Warnung] Kein Python in .venv gefunden."
+  recreate_venv
+  PY="$(find_venv_python)"
 fi
 
 echo "[Debug] VENV_PY=$PY"
+
+# --- prüfen, ob venv-python wirklich startbar ist ---
+if ! "$PY" --version >/dev/null 2>&1; then
+  echo "[Warnung] venv-Python ist nicht ausführbar. Die .venv verweist vermutlich auf eine alte Python-Installation."
+  recreate_venv
+  PY="$(find_venv_python)"
+fi
+
+echo "[Debug] VENV_PY_FINAL=$PY"
 "$PY" --version
+
+# --- pip sicherstellen ---
+"$PY" -m ensurepip --upgrade >/dev/null 2>&1 || true
+"$PY" -m pip --version
 
 # --- requirements.txt prüfen ---
 if [ ! -f "$PROJECT_ROOT/requirements.txt" ]; then
-  echo "[Fehler] requirements.txt nicht gefunden unter: $PROJECT_ROOT/requirements.txt" >&2
+  echo "[Fehler] requirements.txt nicht gefunden unter $PROJECT_ROOT/requirements.txt" >&2
   exit 1
 fi
 
@@ -89,7 +116,7 @@ echo "[Info] Installiere/aktualisiere Python-Abhängigkeiten ..."
 
 # --- Lokale Umgebungsvariablen setzen ---
 export DB_ENGINE="${DB_ENGINE:-django.db.backends.sqlite3}"
-export DB_NAME="${DB_NAME:-${PROJECT_ROOT}/db.sqlite3}"
+export DB_NAME="${DB_NAME:-$PROJECT_ROOT/db.sqlite3}"
 export DJANGO_SECRET_KEY="${DJANGO_SECRET_KEY:-dev-local-secret-key}"
 export DJANGO_ALLOWED_HOSTS="${DJANGO_ALLOWED_HOSTS:-localhost,127.0.0.1}"
 export DJANGO_DEBUG="${DJANGO_DEBUG:-1}"
